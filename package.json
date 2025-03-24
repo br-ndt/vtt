@@ -1,0 +1,19 @@
+{
+  "name": "vtt",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "npm run test --workspaces",
+    "dev": "concurrently \"npm run dev --workspace client\" \"npm run dev --workspace server\""
+  },
+  "keywords": [],
+  "author": "br-ndt",
+  "license": "ISC",
+  "private": true,
+  "description": "",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
