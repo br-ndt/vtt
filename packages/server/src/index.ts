@@ -1,29 +1,56 @@
 import bcrypt from "bcryptjs";
+import bodyParser from "body-parser";
+import { randomUUID } from "crypto";
 import express, { Request } from "express";
 import { createServer } from "http";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Server } from "socket.io";
-import { getRandomIntInclusive } from "./util";
+import { MAX_HEIGHT, MAX_WIDTH } from "./constants";
+import { generateMockUser } from "./mocks";
+import { createGameRoom, createRoom } from "./rooms";
 import { stepPlayer } from "./simulation";
-import { Player, StateObject, User } from "./types";
+import {
+  isGameRoomStateObject,
+  RoomStateObject,
+  ServerStateObject,
+} from "./types";
+import {
+  authenticatedRoute,
+  getRandomIntInclusive,
+  onlyForHandshake,
+} from "./util";
+
+declare global {
+  namespace Express {
+    interface User {
+      activeRoom: string;
+      id: number;
+      username: string;
+    }
+  }
+}
+
+let curId = 0;
 
 const port = 3000;
 
-function generateMockUser(): User {
-  const password = bcrypt.hashSync("bar", 10);
-  return {
-    username: "foo",
-    password,
-  };
-}
-
 // this should be a database at some point lol
-const state: StateObject = {
-  messages: [],
-  players: {},
-  users: [generateMockUser()],
+const state: ServerStateObject = {
+  accounts: [
+    generateMockUser("foo", ++curId),
+    generateMockUser("baz", ++curId),
+  ],
+  rooms: {
+    lobby: {
+      id: "lobby",
+      messages: [],
+      name: "Lobby",
+      users: [],
+    },
+  },
+  users: [],
 };
 
 const app = express();
@@ -37,21 +64,61 @@ const io = new Server(server, {
   },
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(
-  session({
-    secret: "your-secret-key", // Change to a more secure secret in production
-    resave: false,
-    saveUninitialized: false,
-  })
-);
-
+const sessionMiddleware = session({
+  secret: process.env.SECRET ?? "secret",
+  resave: true,
+  saveUninitialized: true,
+});
+app.use(sessionMiddleware);
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.get("/", (req, res) => {
+  res.send("Hello from the backend server!");
+});
+
+app.get("/api", (req, res) => {
+  res.send(JSON.stringify("Hello from the API!"));
+});
+
+app.get("/auth/current", authenticatedRoute, (req, res) => {
+  res.json({ ...req.user, password: undefined });
+});
+
+app.post("/auth/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  ++curId;
+  const newUser = {
+    activeRoom: "lobby",
+    id: curId,
+    username,
+    password: hashedPassword,
+  };
+  state.accounts.push(newUser);
+
+  res.status(201).send("User registered");
+});
+
+app.post("/auth/login", passport.authenticate("local"), (req, res) => {
+  res.json({ ...req.user, password: undefined });
+});
+
+app.get("/auth/logout", (req, res, next) => {
+  const sessionId = req.session.id;
+  req.session.destroy(() => {
+    // disconnect all Socket.IO connections linked to this session ID
+    io.to(`session:${sessionId}`).disconnectSockets();
+    res.status(204).end();
+  });
+});
+
 passport.use(
   new LocalStrategy((username, password, done) => {
-    const user = state.users.find((u) => u.username === username);
+    const user = state.accounts.find((u) => u.username === username);
     if (!user) {
       console.log("Incorrect username");
       return done(null, false, { message: "Incorrect username" });
@@ -70,91 +137,194 @@ passport.use(
 
 passport.serializeUser(
   (_req: Request, user: any, done: (arg0: null, arg1: string) => void) => {
-    done(null, user.username);
+    done(null, user);
   }
 );
 
-passport.deserializeUser((username, done) => {
-  const user = state.users.find((u) => u.username === username);
-  done(null, user ? { username: user?.username } : undefined);
+passport.deserializeUser((userData: Express.User, done) => {
+  const user = state.accounts.find((u) => u.username === userData.username);
+  done(null, user);
 });
 
-// Set up a simple HTTP route
-app.get("/", (req, res) => {
-  res.send("Hello from the backend server!");
-});
+io.engine.use(onlyForHandshake(sessionMiddleware));
+io.engine.use(onlyForHandshake(passport.session()));
+io.engine.use(
+  onlyForHandshake((req, res, next) => {
+    if (req.user) {
+      next();
+    } else {
+      res.writeHead(401);
+      res.end();
+    }
+  })
+);
 
-app.get("/api", (req, res) => {
-  res.send(JSON.stringify("Hello from the API!"));
-});
+io.on("connection", async (socket) => {
+  const req = socket.request as Request & { user: Express.User };
+  const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
+  const isUserConnected = sockets.length > 0;
 
-app.get("/auth/current", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json(req.user);
-  } else {
-    res.status(401).send("Not authenticated");
+  socket.join(`user:${req.user.id}`);
+  socket.join(req.user.activeRoom);
+
+  console.log(`A user [${req.user.username}] has connected`);
+
+  if (!isUserConnected) {
+    state.users.push(req.user);
   }
-});
 
-app.post("/auth/register", async (req, res) => {
-  const { username, password } = req.body;
+  socket.emit("message", state.rooms[req.user.activeRoom].messages);
+  socket.emit("room", req.user.activeRoom);
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  function leaveRoom(user: Express.User, room: RoomStateObject) {
+    console.log(`${user.username} leaving ${room.name}`);
+    socket.leave(room.id);
+    room.users.splice(room.users.indexOf(user), 1);
+    if (isGameRoomStateObject(room)) {
+      delete room.players[user.id];
+    }
+    if (room.users.length <= 0 && room.id !== "lobby") {
+      console.log(`deleting empty room ${room.name}`);
+      delete state.rooms[room.id];
+      io.to("lobby").emit(
+        "rooms",
+        Object.keys(state.rooms)
+          .map((key) => {
+            const room = state.rooms[key];
+            if (isGameRoomStateObject(room)) {
+              return {
+                id: room.id,
+                name: room.name,
+                players: `${Object.keys(room.players).length} / 16`,
+              };
+            }
+            console.log("oops");
+          })
+          .filter((room) => room !== undefined)
+      );
+    }
+  }
 
-  const newUser = { username, password: hashedPassword };
-  state.users.push(newUser);
+  function changeRoom(user: Express.User, room: RoomStateObject) {
+    leaveRoom(user, state.rooms[user.activeRoom]);
 
-  res.status(201).send("User registered");
-});
+    console.log(`${user.username} entering ${room.name}`);
+    socket.join(room.id);
+    user.activeRoom = room.id;
+    room.users.push(user);
+    if (isGameRoomStateObject(room)) {
+      room.players[user.id] = {
+        commands: {},
+        position: {
+          x: getRandomIntInclusive(0, MAX_WIDTH),
+          y: getRandomIntInclusive(0, MAX_HEIGHT),
+        },
+        userId: req.user.id,
+      };
+    }
+    socket.emit("room", user.activeRoom);
+    socket.emit("message", state.rooms[req.user.activeRoom].messages);
+  }
 
-app.post("/auth/login", passport.authenticate("local"), (req, res) => {
-  const resUser = req.user as User;
-  res.json({ username: resUser.username });
-});
-
-app.get("/auth/logout", (req, res, next) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    res.json({});
+  socket.on("createRoom", () => {
+    const room = createGameRoom(
+      `Cool Room #${Object.keys(state.rooms).length}`
+    );
+    state.rooms[room.id] = room;
+    changeRoom(req.user, room);
+    io.to("lobby").emit(
+      "rooms",
+      Object.keys(state.rooms)
+        .map((key) => {
+          const room = state.rooms[key];
+          if (isGameRoomStateObject(room)) {
+            return {
+              id: room.id,
+              name: room.name,
+              players: `${Object.keys(room.players).length} / 16`,
+            };
+          }
+          console.log("oops");
+        })
+        .filter((room) => room !== undefined)
+    );
   });
-});
 
-io.on("connection", (socket) => {
-  console.log("A user connected");
-  const newPlayer: Player = {
-    commands: {},
-    position: {
-      x: getRandomIntInclusive(0, 500),
-      y: getRandomIntInclusive(0, 500),
-    },
-  };
-  socket.emit("message", state.messages);
-  state.players[socket.id] = newPlayer;
+  socket.on("changeRoom", (roomId) => {
+    const room = state.rooms[roomId];
+    if (room) {
+      if (isGameRoomStateObject(room)) {
+        if (Object.keys(room.players).length >= 16) {
+          return;
+        }
+      }
+      changeRoom(req.user, room);
+    }
+  });
+
+  socket.on("getRooms", () => {
+    socket.emit(
+      "rooms",
+      Object.keys(state.rooms)
+        .map((key) => {
+          const room = state.rooms[key];
+          if (isGameRoomStateObject(room)) {
+            return {
+              id: room.id,
+              name: room.name,
+              players: `${Object.keys(room.players).length} / 16`,
+            };
+          }
+        })
+        .filter((room) => room !== undefined)
+    );
+  });
 
   socket.on("message", (data) => {
     console.log("Received message from client:", data);
-    state.messages.push({ user: socket.id, content: data });
-    io.sockets.emit("message", state.messages);
+    state.rooms[req.user.activeRoom].messages.push({
+      user: req.user.username,
+      content: data,
+    });
+    io.to(req.user.activeRoom).emit(
+      "message",
+      state.rooms[req.user.activeRoom].messages
+    );
   });
 
   socket.on("control", (command: { command: string; value: boolean }) => {
-    state.players[socket.id].commands[command.command] = command.value;
+    const roomId = req.user.activeRoom;
+    if (isGameRoomStateObject(state.rooms[roomId])) {
+      state.rooms[roomId].players[req.user.id].commands[command.command] =
+        command.value;
+    }
   });
 
-  socket.on("disconnect", () => {
-    console.log("A user disconnected");
-    delete state.players[socket.id];
+  socket.on("disconnect", async () => {
+    const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
+    const lastSocket = sockets.length === 0;
+    if (lastSocket) {
+      changeRoom(req.user, state.rooms["lobby"]);
+      state.users.splice(state.users.indexOf(req.user), 1);
+      console.log(`A user [${req.user.username}] has disconnected`);
+    }
   });
 });
 
 const FPS = 60;
 const dt = 1 / FPS; // time delta per frame
 setInterval(() => {
-  Object.keys(state.players).forEach((id) => {
-    state.players[id] = stepPlayer(state.players[id], dt);
-  });
-
-  io.emit("update", { players: state.players });
+  Object.keys(state.rooms)
+    .filter((key) => key !== "lobby")
+    .map((key) => state.rooms[key])
+    .forEach((room) => {
+      if (isGameRoomStateObject(room)) {
+        Object.keys(room.players).forEach((id) => {
+          room.players[id] = stepPlayer(room.players[id], dt);
+        });
+        io.to(room.id).emit("update", { players: room.players });
+      }
+    });
 }, 1000 / FPS);
 
 // Start the server

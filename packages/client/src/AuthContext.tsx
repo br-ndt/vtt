@@ -8,6 +8,7 @@ import React, {
 
 // Define the type of user
 interface User {
+  id: string;
   username: string;
 }
 

@@ -1,8 +1,8 @@
 import { Route, BrowserRouter, Routes } from "react-router-dom";
 import "./App.css";
 import { AuthProvider } from "./AuthContext";
-import Home from "./Home";
 import AuthLayout from "./AuthLayout";
+import RoomLayout from "./RoomLayout";
 
 function App() {
   return (
@@ -10,7 +10,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AuthLayout />}>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<RoomLayout />} />
           </Route>
         </Routes>
       </BrowserRouter>

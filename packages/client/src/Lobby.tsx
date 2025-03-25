@@ -1,34 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
 
-function Home() {
+function Lobby() {
   const { user, logout } = useAuth();
-  const { gameState, messages, sendMessage } = useSocket();
+  const { changeRoom, createRoom, getRooms, messages, rooms, sendMessage } =
+    useSocket();
   const [message, setMessage] = useState<string>("");
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const id of Object.keys(gameState.players)) {
-      ctx.save();
-      ctx.translate(
-        gameState.players[id].position.x,
-        gameState.players[id].position.y
-      );
-      ctx.fillStyle = id == user?.id ? "blue" : "red";
-      ctx.fillRect(-4, -4, 8, 8);
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-4, -4, 8, 8);
-      ctx.restore();
-    }
-  }, [gameState]);
+    getRooms();
+  }, [getRooms]);
 
   return (
     <div>
@@ -76,17 +58,26 @@ function Home() {
             </button>
           </div>
         </div>
-
-        <canvas
-          ref={canvasRef}
-          width={500}
-          height={500}
-          style={{ border: "1px solid black" }}
-        />
+      </div>
+      <div>
+        <div>
+          {rooms.map((room) => (
+            <div
+              style={{ border: "1px solid white", cursor: "pointer" }}
+              onClick={() => {
+                changeRoom(room.id);
+              }}
+            >
+              <h3>{room.name}</h3>
+              <p>{room.players}</p>
+            </div>
+          ))}
+        </div>
+        <button onClick={createRoom}>Create Room +</button>
       </div>
       <button onClick={logout}>Logout</button>
     </div>
   );
 }
 
-export default Home;
+export default Lobby;

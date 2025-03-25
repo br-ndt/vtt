@@ -4,3 +4,9 @@ export interface Player {
     y: number;
   };
 }
+
+export interface RoomInfo {
+  id: string;
+  name: string;
+  players: string;
+}

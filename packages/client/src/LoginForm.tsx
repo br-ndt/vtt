@@ -13,7 +13,6 @@ function LoginForm() {
       await login(username, password);
     } catch (err) {
       setError("Invalid username or password");
-      console.log("???");
       console.error(err);
     }
   };

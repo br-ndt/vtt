@@ -1,3 +1,4 @@
+import { MAX_HEIGHT, MAX_WIDTH } from "./constants";
 import { Player } from "./types";
 
 export function stepPlayer(player: Player, dt: number): Player {
@@ -27,7 +28,18 @@ export function stepPlayer(player: Player, dt: number): Player {
   vy *= speed * dt;
 
   player.position.x += vx;
+  if (player.position.x > MAX_WIDTH) {
+    player.position.x = 0;
+  } else if (player.position.x < 0) {
+    player.position.x = MAX_WIDTH;
+  }
+
   player.position.y += vy;
+  if (player.position.y > MAX_HEIGHT) {
+    player.position.y = 0;
+  } else if (player.position.y < 0) {
+    player.position.y = MAX_HEIGHT;
+  }
 
   return player;
 }
