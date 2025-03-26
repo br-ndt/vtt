@@ -86,7 +86,6 @@ export function GameRoom() {
             style={{ border: "1px solid black" }}
           />
         </div>
-        <button onClick={logout}>Logout</button>
       </div>
       <button onClick={() => changeRoom("lobby")}>Back to Lobby</button>
       <button onClick={logout}>Logout</button>

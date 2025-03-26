@@ -1,5 +1,25 @@
+import { Server } from "socket.io";
 import { MAX_HEIGHT, MAX_WIDTH } from "./constants";
-import { Player } from "./types";
+import { RoomDict } from "./rooms";
+import { isGameRoomStateObject, Player } from "./types";
+
+export function beginSimulation(io: Server, roomDict: RoomDict) {
+  const FPS = 60;
+  const dt = 1 / FPS; // time delta per frame
+  setInterval(() => {
+    Object.keys(roomDict)
+      .filter((key) => key !== "lobby")
+      .map((key) => roomDict[key])
+      .forEach((room) => {
+        if (isGameRoomStateObject(room)) {
+          Object.keys(room.players).forEach((id) => {
+            room.players[id] = stepPlayer(room.players[id], dt);
+          });
+          io.to(room.id).emit("update", { players: room.players });
+        }
+      });
+  }, 1000 / FPS);
+}
 
 export function stepPlayer(player: Player, dt: number): Player {
   let vy = 0;
