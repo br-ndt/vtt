@@ -1,12 +1,9 @@
-import bcrypt from "bcryptjs";
 import express from "express";
 import { createServer } from "http";
 import session from "express-session";
-import passport from "passport";
 import { Server } from "socket.io";
 import { beginSimulation } from "./simulation";
 import { ServerStateObject } from "./types";
-import { authenticatedRoute } from "./util";
 import { setupSockets } from "./socket";
 import { setupPassport } from "./auth";
 import { setupMiddleware } from "./server";

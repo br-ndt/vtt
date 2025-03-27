@@ -8,11 +8,11 @@ export interface Command {
 
 export function controlHandler(
   user: Express.User,
-  roomDict: RoomDict,
+  room: RoomStateObject,
   command: Command
 ) {
   const roomId = user.activeRoom;
-  if (isGameRoomStateObject(roomDict[roomId])) {
-    roomDict[roomId].players[user.id].commands[command.command] = command.value;
+  if (isGameRoomStateObject(room)) {
+    room.players[user.id].commands[command.command] = command.value;
   }
 }

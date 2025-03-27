@@ -24,13 +24,13 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
 export function stepPlayer(player: Player, dt: number): Player {
   let vy = 0;
   let vx = 0;
-  const speed = 100;
+  const speed = 10;
   if (player.commands.down) {
     if (!player.commands.up) {
-      vy = 1;
+      vy = -1;
     }
   } else if (player.commands.up) {
-    vy = -1;
+    vy = 1;
   }
   if (player.commands.right) {
     if (!player.commands.left) {
@@ -49,17 +49,20 @@ export function stepPlayer(player: Player, dt: number): Player {
 
   player.position.x += vx;
   if (player.position.x > MAX_WIDTH) {
-    player.position.x = 0;
-  } else if (player.position.x < 0) {
+    player.position.x = -MAX_WIDTH;
+  } else if (player.position.x < -MAX_WIDTH) {
     player.position.x = MAX_WIDTH;
   }
 
   player.position.y += vy;
   if (player.position.y > MAX_HEIGHT) {
-    player.position.y = 0;
-  } else if (player.position.y < 0) {
+    player.position.y = -MAX_HEIGHT;
+  } else if (player.position.y < -MAX_HEIGHT) {
     player.position.y = MAX_HEIGHT;
   }
+  // DEMO
+  player.rotation.x += 0.01;
+  player.rotation.y += 0.01;
 
   return player;
 }

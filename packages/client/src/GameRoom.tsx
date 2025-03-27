@@ -1,94 +1,61 @@
-import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
+import ChatWindow from "./ChatWindow";
+import R3F from "./R3F";
 
 export function GameRoom() {
-  const { logout, user } = useAuth();
-  const { activeRoom, changeRoom, gameState, messages, sendMessage } =
-    useSocket();
-  const [message, setMessage] = useState<string>("");
-
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const id of Object.keys(gameState.players)) {
-      ctx.save();
-      ctx.translate(
-        gameState.players[id].position.x,
-        gameState.players[id].position.y
-      );
-      ctx.fillStyle = id == user?.id ? "blue" : "red";
-      ctx.fillRect(-4, -4, 8, 8);
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-4, -4, 8, 8);
-      ctx.restore();
-    }
-  }, [gameState]);
+  const { logout } = useAuth();
+  const { activeRoom, changeRoom } = useSocket();
 
   return (
-    <div>
-      <h2>{activeRoom}</h2>
-      <div>
-        <div style={{ display: "flex" }}>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-            }}
-          >
-            <div>
-              {messages.map((message, i) => (
-                <p
-                  style={{ display: "flex", justifyContent: "flex-start" }}
-                  key={`${message.user}-${i}`}
-                >
-                  <strong
-                    style={{
-                      color: message.user === user?.username ? "yellow" : "",
-                    }}
-                  >
-                    {message.user}:
-                  </strong>
-                  &nbsp;
-                  {message.content}
-                </p>
-              ))}
-            </div>
-            <div style={{ display: "flex" }}>
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message"
-              />
-              <button
-                onClick={() => {
-                  setMessage("");
-                  sendMessage(message);
-                }}
-              >
-                Send Message
-              </button>
-            </div>
-          </div>
-
-          <canvas
+    <div style={{ position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+        }}
+      >
+        {/* <canvas
             ref={canvasRef}
             width={500}
             height={500}
             style={{ border: "1px solid black" }}
-          />
+            /> */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            height: "40%",
+            pointerEvents: "none",
+            width: "100vw",
+          }}
+        >
+          <ChatWindow />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <button
+              style={{ marginTop: "auto", pointerEvents: "auto", zIndex: 1 }}
+              onClick={() => changeRoom("lobby")}
+            >
+              Back to lobby
+            </button>
+            <button
+              style={{ marginTop: "auto", pointerEvents: "auto", zIndex: 1 }}
+              onClick={logout}
+            >
+              Logout
+            </button>
+          </div>
         </div>
+        <h6 style={{ padding: "4px 8px", zIndex: 1 }}>{activeRoom}</h6>
       </div>
-      <button onClick={() => changeRoom("lobby")}>Back to Lobby</button>
-      <button onClick={logout}>Logout</button>
+      <R3F />
     </div>
   );
 }

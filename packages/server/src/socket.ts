@@ -50,10 +50,6 @@ export async function connectHandler(
     messageHandler(io, req.user, message, roomDict);
   });
 
-  socket.on("control", (command: Command) => {
-    controlHandler(req.user, roomDict, command);
-  });
-
   socket.on("disconnect", async () => {
     disconnectHandler(socket, io, req.user, userList, roomDict);
   });

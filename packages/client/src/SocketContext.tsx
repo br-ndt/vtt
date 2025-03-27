@@ -27,6 +27,7 @@ interface SocketContextType {
     players: { [key: string]: Player };
   };
   getRooms: () => void;
+  hover: (id: string, value: boolean) => void;
   messages: Message[];
   rooms: RoomInfo[];
   sendMessage: (message: string) => void;
@@ -38,6 +39,7 @@ const defaultSocketContext: SocketContextType = {
   createRoom: () => undefined,
   gameState: { players: {} },
   getRooms: () => undefined,
+  hover: () => undefined,
   messages: [],
   rooms: [],
   sendMessage: () => undefined,
@@ -115,7 +117,10 @@ export function SocketProvider({ children }: SocketContextProps) {
     addEventListener("keyup", onKeyUp);
 
     return () => {
-      socket?.off("chat message");
+      socket?.off("update");
+      socket?.off("room");
+      socket?.off("rooms");
+      socket?.off("message");
       removeEventListener("keydown", onKeyDown);
       removeEventListener("keyup", onKeyUp);
     };
@@ -143,6 +148,13 @@ export function SocketProvider({ children }: SocketContextProps) {
     socket?.emit("createRoom");
   }, [socket]);
 
+  const hover = useCallback(
+    (id: string, value: boolean) => {
+      socket?.emit("hover", { id, value });
+    },
+    [socket]
+  );
+
   return (
     <SocketContext.Provider
       value={{
@@ -151,6 +163,7 @@ export function SocketProvider({ children }: SocketContextProps) {
         createRoom,
         gameState,
         getRooms,
+        hover,
         messages,
         rooms,
         sendMessage,

@@ -7,6 +7,7 @@ import {
 import { Server, Socket } from "socket.io";
 import { getRandomIntInclusive } from "./util";
 import { MAX_HEIGHT, MAX_WIDTH } from "./constants";
+import { Command, controlHandler } from "./control";
 
 export interface RoomDict {
   [key: string]: RoomStateObject;
@@ -36,6 +37,17 @@ export function leaveRoom(
   roomDict: RoomDict
 ) {
   console.log(`${user.username} leaving ${room.name}`);
+
+  if (isGameRoomStateObject(room)) {
+    socket.off("control", (command: Command) => {
+      controlHandler(user, room, command);
+    });
+
+    socket.off("hover", ({ id, value }: { id: string; value: boolean }) => {
+      hoverHandler(room, id, value);
+    });
+  }
+
   socket.leave(room.id);
   room.users.splice(room.users.indexOf(user), 1);
   if (isGameRoomStateObject(room)) {
@@ -81,11 +93,26 @@ export function changeRoom(
     nextRoom.players[user.id] = {
       commands: {},
       position: {
-        x: getRandomIntInclusive(0, MAX_WIDTH),
-        y: getRandomIntInclusive(0, MAX_HEIGHT),
+        x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
+        y: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
+        z: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
       },
+      rotation: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      selected: false,
       userId: user.id,
     };
+
+    socket.on("control", (command: Command) => {
+      controlHandler(user, nextRoom, command);
+    });
+
+    socket.on("hover", ({ id, value }: { id: string; value: boolean }) => {
+      hoverHandler(nextRoom, id, value);
+    });
   }
   socket.emit("room", user.activeRoom);
   socket.emit("message", nextRoom.messages);
@@ -155,4 +182,8 @@ export function getRoomsHandler(
       })
       .filter((room) => room !== undefined)
   );
+}
+
+function hoverHandler(room: GameRoomStateObject, id: string, value: boolean) {
+  room.players[id].selected = value;
 }
