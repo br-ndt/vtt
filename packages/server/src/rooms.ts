@@ -75,16 +75,11 @@ export function leaveRoom(
   }
 }
 
-export function changeRoom(
+export function joinRoom(
   socket: Socket,
-  io: Server,
   user: Express.User,
-  roomDict: RoomDict,
-  nextRoom: RoomStateObject,
-  prevRoom: RoomStateObject
+  nextRoom: RoomStateObject
 ) {
-  leaveRoom(socket, io, user, prevRoom, roomDict);
-
   console.log(`${user.username} entering ${nextRoom.name}`);
   socket.join(nextRoom.id);
   user.activeRoom = nextRoom.id;
@@ -92,9 +87,10 @@ export function changeRoom(
   if (isGameRoomStateObject(nextRoom)) {
     nextRoom.players[user.id] = {
       commands: {},
+      isJumping: false,
       position: {
         x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
-        y: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
+        y: 10,
         z: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
       },
       rotation: {
@@ -104,6 +100,11 @@ export function changeRoom(
       },
       selected: false,
       userId: user.id,
+      velocity: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
     };
 
     socket.on("control", (command: Command) => {
@@ -116,6 +117,18 @@ export function changeRoom(
   }
   socket.emit("room", user.activeRoom);
   socket.emit("message", nextRoom.messages);
+}
+
+export function changeRoom(
+  socket: Socket,
+  io: Server,
+  user: Express.User,
+  roomDict: RoomDict,
+  nextRoom: RoomStateObject,
+  prevRoom: RoomStateObject
+) {
+  leaveRoom(socket, io, user, prevRoom, roomDict);
+  joinRoom(socket, user, nextRoom);
 }
 
 export function changeRoomHandler(

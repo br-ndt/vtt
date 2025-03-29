@@ -1,10 +1,12 @@
 export interface Player {
   commands: {
+    fire?: boolean;
     left?: boolean;
     right?: boolean;
     up?: boolean;
     down?: boolean;
   };
+  isJumping: boolean;
   position: {
     x: number;
     y: number;
@@ -17,6 +19,11 @@ export interface Player {
   };
   selected: boolean;
   userId: number;
+  velocity: {
+    x: number;
+    y: number;
+    z: number;
+  };
 }
 
 export interface ServerStateObject {

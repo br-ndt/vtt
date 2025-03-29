@@ -22,47 +22,73 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
 }
 
 export function stepPlayer(player: Player, dt: number): Player {
-  let vy = 0;
   let vx = 0;
+  let vy = 0;
+  let vz = 0;
   const speed = 10;
+
+  if (!player.isJumping && player.commands.fire) {
+    player.velocity.y = 10;
+    player.isJumping = true;
+  }
+
   if (player.commands.down) {
     if (!player.commands.up) {
-      vy = -1;
+      vz = 1;
     }
   } else if (player.commands.up) {
-    vy = 1;
+    vz = -1;
   }
   if (player.commands.right) {
     if (!player.commands.left) {
-      vx = 1;
+      vx = -1;
     }
   } else if (player.commands.left) {
-    vx = -1;
+    vx = 1;
   }
-  if (vx !== 0 && vy !== 0) {
-    const magnitude = Math.sqrt(vx * vx + vy * vy);
+
+  if (vx !== 0 && vz !== 0) {
+    const magnitude = Math.sqrt(vx * vx + vz * vz);
     vx /= magnitude;
-    vy /= magnitude;
+    vz /= magnitude;
   }
-  vx *= speed * dt;
-  vy *= speed * dt;
 
-  player.position.x += vx;
+  if (player.position.y > 0.5) {
+    player.velocity.y += -9.8 * dt;
+  }
+  vz *= speed * dt;
+  vx *= (speed / 4) * dt;
+  player.rotation.y += vx;
+
+  if (player.rotation.y > 2 * Math.PI) {
+    player.rotation.y -= 2 * Math.PI;
+  } else if (player.rotation.y < 0) {
+    player.rotation.y += 2 * Math.PI;
+  }
+
+  player.velocity.x = vx;
+  player.velocity.y += vy;
+  player.velocity.z = vz;
+
+  player.position.x += Math.sin(player.rotation.y) * player.velocity.z;
+  player.position.y += player.velocity.y * dt;
+  player.position.z += Math.cos(player.rotation.y) * player.velocity.z;
+
+  if (player.position.y < 0.5) {
+    player.isJumping = false;
+    player.position.y = 0.5;
+  }
   if (player.position.x > MAX_WIDTH) {
-    player.position.x = -MAX_WIDTH;
+    player.position.x %= -MAX_WIDTH;
   } else if (player.position.x < -MAX_WIDTH) {
-    player.position.x = MAX_WIDTH;
+    player.position.x %= MAX_WIDTH;
   }
 
-  player.position.y += vy;
-  if (player.position.y > MAX_HEIGHT) {
-    player.position.y = -MAX_HEIGHT;
-  } else if (player.position.y < -MAX_HEIGHT) {
-    player.position.y = MAX_HEIGHT;
+  if (player.position.z > MAX_HEIGHT) {
+    player.position.z %= -MAX_HEIGHT;
+  } else if (player.position.z < -MAX_HEIGHT) {
+    player.position.z %= MAX_HEIGHT;
   }
-  // DEMO
-  player.rotation.x += 0.01;
-  player.rotation.y += 0.01;
 
   return player;
 }

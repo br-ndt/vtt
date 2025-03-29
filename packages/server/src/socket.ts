@@ -7,7 +7,6 @@ import {
   getRoomsHandler,
   RoomDict,
 } from "./rooms";
-import { Command, controlHandler } from "./control";
 import { messageHandler } from "./messages";
 import { onlyForHandshake } from "./util";
 import passport from "passport";

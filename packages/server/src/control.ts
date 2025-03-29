@@ -11,7 +11,6 @@ export function controlHandler(
   room: RoomStateObject,
   command: Command
 ) {
-  const roomId = user.activeRoom;
   if (isGameRoomStateObject(room)) {
     room.players[user.id].commands[command.command] = command.value;
   }
