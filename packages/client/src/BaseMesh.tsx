@@ -1,19 +1,16 @@
 import { ThreeEvent } from "@react-three/fiber";
 import { ReactNode, RefObject, useEffect, useRef } from "react";
-import { BufferGeometry, Euler, EulerOrder, Mesh, Vector3 } from "three";
+import { BufferGeometry, Euler, EulerOrder, Material, Mesh } from "three";
 
 export interface BaseMeshProps {
-  children: ReactNode | ReactNode[];
+  children?: ReactNode | ReactNode[];
   disposeOnTeardown?: boolean;
+  geometry?: BufferGeometry;
+  material?: Material | Material[];
   onClick?: (event: ThreeEvent<globalThis.MouseEvent>) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
-  position?:
-    | Vector3
-    | [x: number, y: number, z: number]
-    | Readonly<
-        number | Vector3 | [x: number, y: number, z: number] | undefined
-      >;
+  position: [x: number, y: number, z: number];
   rotation?:
     | Euler
     | [x: number, y: number, z: number, order?: EulerOrder | undefined]
@@ -29,6 +26,8 @@ export interface BaseMeshProps {
 function BaseMesh({
   children,
   disposeOnTeardown,
+  geometry,
+  material,
   onClick,
   onPointerEnter,
   onPointerLeave,
@@ -52,6 +51,8 @@ function BaseMesh({
   return (
     <mesh
       castShadow
+      geometry={geometry}
+      material={material}
       onClick={onClick}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}

@@ -5,9 +5,8 @@ import {
   RoomStateObject,
 } from "./types";
 import { Server, Socket } from "socket.io";
-import { getRandomIntInclusive } from "./util";
-import { MAX_HEIGHT, MAX_WIDTH } from "./constants";
 import { Command, controlHandler } from "./control";
+import { createSimWorld, makeNewPlayer } from "./simulation";
 
 export interface RoomDict {
   [key: string]: RoomStateObject;
@@ -26,6 +25,7 @@ export function createGameRoom(roomName: string): GameRoomStateObject {
   return {
     ...createRoom(roomName),
     players: {},
+    world: createSimWorld(),
   };
 }
 
@@ -40,7 +40,7 @@ export function leaveRoom(
 
   if (isGameRoomStateObject(room)) {
     socket.off("control", (command: Command) => {
-      controlHandler(user, room, command);
+      controlHandler(user, roomDict, command);
     });
 
     socket.off("hover", ({ id, value }: { id: string; value: boolean }) => {
@@ -68,7 +68,6 @@ export function leaveRoom(
               players: `${Object.keys(room.players).length} / 16`,
             };
           }
-          console.log("oops");
         })
         .filter((room) => room !== undefined)
     );
@@ -78,37 +77,20 @@ export function leaveRoom(
 export function joinRoom(
   socket: Socket,
   user: Express.User,
-  nextRoom: RoomStateObject
+  nextRoom: RoomStateObject,
+  roomDict: RoomDict
 ) {
   console.log(`${user.username} entering ${nextRoom.name}`);
   socket.join(nextRoom.id);
   user.activeRoom = nextRoom.id;
   nextRoom.users.push(user);
   if (isGameRoomStateObject(nextRoom)) {
-    nextRoom.players[user.id] = {
-      commands: {},
-      isJumping: false,
-      position: {
-        x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
-        y: 10,
-        z: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
-      },
-      rotation: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      selected: false,
-      userId: user.id,
-      velocity: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    };
+    nextRoom.players[user.id] = makeNewPlayer(user.id, user.username);
+    console.log(nextRoom.id);
+    nextRoom.world.addBody(nextRoom.players[user.id].physics);
 
     socket.on("control", (command: Command) => {
-      controlHandler(user, nextRoom, command);
+      controlHandler(user, roomDict, command);
     });
 
     socket.on("hover", ({ id, value }: { id: string; value: boolean }) => {
@@ -128,7 +110,7 @@ export function changeRoom(
   prevRoom: RoomStateObject
 ) {
   leaveRoom(socket, io, user, prevRoom, roomDict);
-  joinRoom(socket, user, nextRoom);
+  joinRoom(socket, user, nextRoom, roomDict);
 }
 
 export function changeRoomHandler(
@@ -161,18 +143,15 @@ export function createRoomHandler(
   io.to("lobby").emit(
     "rooms",
     Object.keys(roomDict)
+      .filter((key) => isGameRoomStateObject(roomDict[key]))
       .map((key) => {
-        const room = roomDict[key];
-        if (isGameRoomStateObject(room)) {
-          return {
-            id: room.id,
-            name: room.name,
-            players: `${Object.keys(room.players).length} / 16`,
-          };
-        }
-        console.log("oops");
+        const room = roomDict[key] as GameRoomStateObject;
+        return {
+          id: room.id,
+          name: room.name,
+          players: `${Object.keys(room.players).length} / 16`,
+        };
       })
-      .filter((room) => room !== undefined)
   );
 }
 

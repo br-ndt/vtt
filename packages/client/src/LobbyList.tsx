@@ -25,10 +25,11 @@ function LobbyList() {
     >
       {rooms.map((room) => (
         <button
-          style={{ width: "100%" }}
+          key={room.id}
           onClick={() => {
             changeRoom(room.id);
           }}
+          style={{ width: "100%" }}
         >
           <h3>{room.name}</h3>
           <p>{room.players}</p>

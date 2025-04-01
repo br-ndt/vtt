@@ -10,6 +10,13 @@ export interface Player {
     z: number;
   };
   selected: boolean;
+  userId: number;
+  username: string;
+  velocity: {
+    x: number;
+    y: number;
+    z: number;
+  };
 }
 
 export interface RoomInfo {

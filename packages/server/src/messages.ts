@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { RoomStateObject } from "./types";
+import { Player, RoomStateObject } from "./types";
 
 export function messageHandler(
   io: Server,
@@ -13,4 +13,11 @@ export function messageHandler(
     content: message,
   });
   io.to(user.activeRoom).emit("message", roomDict[user.activeRoom].messages);
+}
+
+export function serializePlayers(playerDict: { [key: string]: Player }) {
+  return Object.values(playerDict).map((player) => ({
+    ...player,
+    physics: undefined,
+  }));
 }

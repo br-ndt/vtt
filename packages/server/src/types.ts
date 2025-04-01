@@ -1,3 +1,5 @@
+import { Body, World } from "cannon-es";
+
 export interface Player {
   commands: {
     fire?: boolean;
@@ -7,6 +9,7 @@ export interface Player {
     down?: boolean;
   };
   isJumping: boolean;
+  physics: Body;
   position: {
     x: number;
     y: number;
@@ -50,4 +53,5 @@ export function isGameRoomStateObject(
 
 export interface GameRoomStateObject extends RoomStateObject {
   players: { [key: string]: Player };
+  world: World;
 }
