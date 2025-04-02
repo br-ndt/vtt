@@ -30,7 +30,7 @@ export async function connectHandler(
     userList.push(req.user);
   }
 
-  socket.emit("message", roomDict[req.user.activeRoom].messages);
+  socket.emit("message", roomDict[req.user.activeRoom]?.messages ?? []);
   socket.emit("room", req.user.activeRoom);
 
   socket.on("createRoom", () => {
@@ -63,15 +63,15 @@ export async function disconnectHandler(
 ) {
   const sockets = await io.in(`user:${user.id}`).fetchSockets();
   const lastSocket = sockets.length === 0;
+  changeRoom(
+    socket,
+    io,
+    user,
+    roomDict,
+    roomDict["lobby"],
+    roomDict[user.activeRoom]
+  );
   if (lastSocket) {
-    changeRoom(
-      socket,
-      io,
-      user,
-      roomDict,
-      roomDict["lobby"],
-      roomDict[user.activeRoom]
-    );
     userList.splice(userList.indexOf(user), 1);
     console.log(`A user [${user.username}] has disconnected`);
   }

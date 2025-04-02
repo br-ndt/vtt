@@ -14,6 +14,7 @@ function R3F() {
   const [selectedKeys, setSelectedKeys] = useState<{ [key: number]: boolean }>(
     {}
   );
+  const playerFbx = useFBX("/Mech_FinnTheFrog.fbx");
 
   const onHover = useCallback(
     (key: number, value: boolean) => {
@@ -57,6 +58,7 @@ function R3F() {
     return (
       <Player
         color={player.userId.toString() == user?.id ? "blue" : "orange"}
+        fbxSrc={playerFbx}
         hovered={keysToHover.includes(player.userId)}
         isMoving={
           (player.velocity.x !== 0 && player.velocity.y !== 0) ||

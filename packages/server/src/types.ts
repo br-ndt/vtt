@@ -48,7 +48,7 @@ export interface RoomStateObject {
 export function isGameRoomStateObject(
   room: RoomStateObject | GameRoomStateObject
 ): room is GameRoomStateObject {
-  return (room as GameRoomStateObject).players !== undefined;
+  return (room as GameRoomStateObject)?.players !== undefined;
 }
 
 export interface GameRoomStateObject extends RoomStateObject {

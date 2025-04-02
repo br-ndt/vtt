@@ -178,7 +178,7 @@ export function stepPlayer(player: Player, dt: number): Player {
     vz /= magnitude;
   }
 
-  vz *= speed * dt;
+  vz *= -speed * dt;
   vx *= (speed / 8) * dt;
   player.rotation.y += vx;
 

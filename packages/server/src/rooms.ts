@@ -36,7 +36,7 @@ export function leaveRoom(
   room: RoomStateObject,
   roomDict: RoomDict
 ) {
-  console.log(`${user.username} leaving ${room.name}`);
+  console.log(`${user?.username} leaving ${room?.name}`);
 
   if (isGameRoomStateObject(room)) {
     socket.off("control", (command: Command) => {
@@ -48,8 +48,8 @@ export function leaveRoom(
     });
   }
 
-  socket.leave(room.id);
-  room.users.splice(room.users.indexOf(user), 1);
+  socket.leave(room?.id);
+  room?.users?.splice(room.users.indexOf(user), 1);
   if (isGameRoomStateObject(room)) {
     delete room.players[user.id];
   }

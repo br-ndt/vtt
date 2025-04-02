@@ -13,7 +13,9 @@ export default function OutlineableMesh({
   return (
     <BaseMesh {...props}>
       {children}
-      
+      {outlines.map((outline, i) => (
+        <Outlines key={i} {...outline} />
+      ))}
     </BaseMesh>
   );
 }
