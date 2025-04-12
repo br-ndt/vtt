@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 import { useCallback, useState } from "react";
 import GroundPlane from "./GroundPlane";
 import BigLight from "./BigLight";
-import { useFBX } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 
 function R3F() {
   const { user } = useAuth();
@@ -14,7 +14,7 @@ function R3F() {
   const [selectedKeys, setSelectedKeys] = useState<{ [key: number]: boolean }>(
     {}
   );
-  const playerFbx = useFBX("/Mech_FinnTheFrog.fbx");
+  const playerGltf = useGLTF("/Mech_FinnTheFrog.glb");
 
   const onHover = useCallback(
     (key: number, value: boolean) => {
@@ -58,7 +58,7 @@ function R3F() {
     return (
       <Player
         color={player.userId.toString() == user?.id ? "blue" : "orange"}
-        fbxSrc={playerFbx}
+        gltf={playerGltf}
         hovered={keysToHover.includes(player.userId)}
         isMoving={
           (player.velocity.x !== 0 && player.velocity.y !== 0) ||

@@ -1,21 +1,17 @@
-import { PerspectiveCamera } from "@react-three/drei";
-import {
-  AnimationMixer,
-  ColorRepresentation,
-  Euler,
-  Group,
-  LoopRepeat,
-} from "three";
+import { Html, PerspectiveCamera } from "@react-three/drei";
+import { AnimationMixer, Clock, ColorRepresentation, Euler } from "three";
 
 import { BaseMeshProps } from "./BaseMesh";
-import { useEffect, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import RecursiveMeshGroup from "./RecursiveMeshGroup";
+import { useEffect, useMemo, useRef } from "react";
+import { ObjectMap, useFrame } from "@react-three/fiber";
+import AnimatedGLTFInstance from "./AnimatedGLTFInstance";
+import { GLTF } from "three-stdlib";
+import { cloneGltfWithAnimations } from "./utils/gltf";
 
 interface PlayerProps
   extends Pick<BaseMeshProps, "onClick" | "position" | "rotation"> {
   color?: ColorRepresentation;
-  fbxSrc: Group;
+  gltf: GLTF & ObjectMap;
   hovered?: boolean;
   isMoving?: boolean;
   isPlayer?: boolean;
@@ -27,42 +23,32 @@ interface PlayerProps
 
 function Player({
   color,
-  fbxSrc,
+  gltf,
   isMoving = false,
   isPlayer,
+  name,
   position,
   rotation,
 }: PlayerProps) {
-  const clone = useRef<Group>(fbxSrc.clone(true));
-  const mixer = useRef<AnimationMixer | null>(null);
+  const clock = useRef(new Clock());
+  const { clone, mixer } = useMemo(() => cloneGltfWithAnimations(gltf), [gltf]);
+
+  useEffect(() => {
+    mixer.stopAllAction();
+    if (isMoving) {
+      mixer.clipAction(gltf.animations[12]).play(); // WALK
+    } else {
+      mixer.clipAction(gltf.animations[0]).play(); // IDLE
+    }
+  }, [gltf, isMoving, mixer]);
+
+  useFrame(() => {
+    mixer.update(clock.current.getDelta());
+  });
+
   if (rotation instanceof Euler) {
     rotation.y += Math.PI / 2;
   }
-
-  useEffect(() => {
-    if (!clone.current) {
-      return;
-    }
-    if (mixer.current) {
-      console.log(clone.current);
-      let action = mixer.current.clipAction(clone.current.animations[4]); // IDLE
-      if (isMoving) {
-        action = mixer.current.clipAction(clone.current.animations[10]); // WALK
-      }
-      action.setLoop(LoopRepeat, Infinity);
-      action.play();
-    }
-
-    return () => {
-      mixer.current?.stopAllAction();
-    };
-  }, [clone, isMoving]);
-
-  useFrame((_, delta) => {
-    if (mixer.current) {
-      mixer.current.update(delta);
-    }
-  });
 
   return (
     <group position={position} rotation={rotation} scale={0.5}>
@@ -74,11 +60,13 @@ function Player({
           rotation={[0, Math.PI, 0]}
         />
       )}
-      {clone.current && (
-        <>
-          <animationMixer args={[clone.current]} ref={mixer} />
-          <RecursiveMeshGroup color={color} ref={clone} />
-        </>
+      {clone && (
+        <primitive object={clone} position={[0, 0, 0]} scale={[1, 1, 1]} />
+      )}
+      {!isPlayer && (
+        <Html>
+          <p>{name}</p>
+        </Html>
       )}
     </group>
   );
