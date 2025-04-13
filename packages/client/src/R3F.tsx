@@ -46,39 +46,11 @@ function R3F() {
         } else {
           newKeys[key] = true;
         }
-        console.log("newKeys", newKeys);
         return newKeys;
       });
     },
     [setSelectedKeys]
   );
-
-  const players = Object.keys(gameState.players).map((key) => {
-    const player = gameState.players[key];
-    return (
-      <Player
-        color={player.userId.toString() == user?.id ? "blue" : "orange"}
-        gltf={playerGltf}
-        hovered={keysToHover.includes(player.userId)}
-        isMoving={
-          (player.velocity.x !== 0 && player.velocity.y !== 0) ||
-          player.velocity.z !== 0
-        }
-        isPlayer={player.userId.toString() == user?.id}
-        key={player.userId}
-        name={player.username}
-        onClick={(event) => {
-          event.stopPropagation();
-          onClick(player.userId);
-        }}
-        onHoverChange={(value) => onHover(player.userId, value)}
-        position={[player.position.x, player.position.y, player.position.z]}
-        rotation={[player.rotation.x, player.rotation.y, player.rotation.z]}
-        selected={selectedKeys?.[player.userId] === true}
-        wireframe={player.selected}
-      />
-    );
-  });
 
   return (
     <Canvas
@@ -91,11 +63,46 @@ function R3F() {
         width: "100vw",
       }}
     >
-      <axesHelper />
       <BigLight color="orange" intensity={0.5} position={[-50, 60, -33]} />
       <BigLight color="white" intensity={2} position={[-50, 60, 50]} />
       <BigLight color="blue" intensity={0.3} position={[18, 60, 50]} />
-      {players}
+      {Object.keys(gameState.players).map((key) => {
+        const player = gameState.players[key];
+        return (
+          <Player
+            color={player.userId.toString() == user?.id ? "blue" : "orange"}
+            gltf={playerGltf}
+            hovered={keysToHover.includes(player.userId)}
+            id={player.userId}
+            isMoving={
+              (player.velocity.x !== 0 && player.velocity.y !== 0) ||
+              player.velocity.z !== 0
+            }
+            isPlayer={player.userId.toString() == user?.id}
+            key={player.userId}
+            name={player.username}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClick(player.userId);
+            }}
+            onHoverChange={(value) => onHover(player.userId, value)}
+            position={[player.position.x, player.position.y, player.position.z]}
+            rotation={[player.rotation.x, player.rotation.y, player.rotation.z]}
+            selected={selectedKeys?.[player.userId] === true}
+            wireframe={player.selected}
+          />
+        );
+      })}
+      {gameState.objects.bullets.map((bullet) => {
+        return (
+          <mesh
+            position={[bullet.position.x, bullet.position.y, bullet.position.z]}
+          >
+            <meshStandardMaterial color="red" />
+            <boxGeometry args={[0.1, 0.1, 0.1]} />
+          </mesh>
+        );
+      })}
       <GroundPlane height={100} width={100} />
     </Canvas>
   );

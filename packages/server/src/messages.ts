@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import { Player, RoomStateObject } from "./types";
+import { BulletStateObject, Player, RoomStateObject } from "./types";
 
 export function messageHandler(
   io: Server,
@@ -20,4 +20,13 @@ export function serializePlayers(playerDict: { [key: string]: Player }) {
     ...player,
     physics: undefined,
   }));
+}
+
+export function serializeObjects(objects: { bullets: BulletStateObject[] }) {
+  return {
+    bullets: objects.bullets.map((bullet) => ({
+      ...bullet,
+      physics: undefined,
+    })),
+  };
 }

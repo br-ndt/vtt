@@ -8,7 +8,7 @@ import {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { keyToCommand } from "./utils/input";
-import { Player, RoomInfo } from "./types";
+import { Bullet, Player, RoomInfo } from "./types";
 
 interface Message {
   user: string;
@@ -24,6 +24,9 @@ interface SocketContextType {
   changeRoom: (roomName: string) => void;
   createRoom: () => void;
   gameState: {
+    objects: {
+      bullets: Bullet[];
+    };
     players: { [key: string]: Player };
   };
   getRooms: () => void;
@@ -37,7 +40,7 @@ const defaultSocketContext: SocketContextType = {
   activeRoom: "",
   changeRoom: () => undefined,
   createRoom: () => undefined,
-  gameState: { players: {} },
+  gameState: { objects: { bullets: [] }, players: {} },
   getRooms: () => undefined,
   hover: () => undefined,
   messages: [],
@@ -65,6 +68,7 @@ export function SocketProvider({ children }: SocketContextProps) {
   );
   const [rooms, setRooms] = useState<RoomInfo[]>(defaultSocketContext.rooms);
   const [gameState, setGameState] = useState<{
+    objects: { bullets: Bullet[] };
     players: { [key: string]: Player };
   }>(defaultSocketContext.gameState);
 
@@ -94,6 +98,23 @@ export function SocketProvider({ children }: SocketContextProps) {
   }, []);
 
   useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!socket) {
+        return;
+      }
+      if (e.button === 0) {
+        socket.emit("control", { command: "fire", value: true });
+      }
+    }
+    function onMouseUp(e: MouseEvent) {
+      if (!socket) {
+        return;
+      }
+      if (e.button === 0) {
+        socket.emit("control", { command: "fire", value: false });
+      }
+    }
+
     function onKeyDown(e: KeyboardEvent) {
       if (!socket) {
         return;
@@ -113,6 +134,8 @@ export function SocketProvider({ children }: SocketContextProps) {
       }
     }
 
+    addEventListener("mousedown", onMouseDown);
+    addEventListener("mouseup", onMouseUp);
     addEventListener("keydown", onKeyDown);
     addEventListener("keyup", onKeyUp);
 
@@ -121,6 +144,8 @@ export function SocketProvider({ children }: SocketContextProps) {
       socket?.off("room");
       socket?.off("rooms");
       socket?.off("message");
+      removeEventListener("mousedown", onMouseDown);
+      removeEventListener("mouseup", onMouseUp);
       removeEventListener("keydown", onKeyDown);
       removeEventListener("keyup", onKeyUp);
     };

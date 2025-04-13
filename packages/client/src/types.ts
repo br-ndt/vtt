@@ -19,6 +19,20 @@ export interface Player {
   };
 }
 
+export interface Bullet {
+  playerId: number;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  rotation: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
 export interface RoomInfo {
   id: string;
   name: string;

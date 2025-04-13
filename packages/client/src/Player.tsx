@@ -1,22 +1,30 @@
 import { Html, PerspectiveCamera } from "@react-three/drei";
-import { AnimationMixer, Clock, ColorRepresentation, Euler } from "three";
+import {
+  Clock,
+  ColorRepresentation,
+  Euler,
+  Object3D,
+  Object3DEventMap,
+} from "three";
 
 import { BaseMeshProps } from "./BaseMesh";
-import { useEffect, useMemo, useRef } from "react";
+import { RefObject, useEffect, useMemo, useRef } from "react";
 import { ObjectMap, useFrame } from "@react-three/fiber";
-import AnimatedGLTFInstance from "./AnimatedGLTFInstance";
 import { GLTF } from "three-stdlib";
 import { cloneGltfWithAnimations } from "./utils/gltf";
+import { isMesh } from "./utils/mesh";
 
 interface PlayerProps
   extends Pick<BaseMeshProps, "onClick" | "position" | "rotation"> {
   color?: ColorRepresentation;
   gltf: GLTF & ObjectMap;
   hovered?: boolean;
+  id: number;
   isMoving?: boolean;
   isPlayer?: boolean;
   name: string;
   onHoverChange?: (value: boolean) => void;
+  ref?: (instance: Object3D<Object3DEventMap> | null) => void;
   selected?: boolean;
   wireframe?: boolean;
 }
@@ -24,14 +32,22 @@ interface PlayerProps
 function Player({
   color,
   gltf,
+  hovered,
+  id,
   isMoving = false,
   isPlayer,
   name,
+  onHoverChange,
   position,
+  ref,
   rotation,
+  selected,
 }: PlayerProps) {
   const clock = useRef(new Clock());
-  const { clone, mixer } = useMemo(() => cloneGltfWithAnimations(gltf), [gltf]);
+  const { clone, mixer } = useMemo(() => {
+    const result = cloneGltfWithAnimations(gltf, color);
+    return result;
+  }, [color, gltf]);
 
   useEffect(() => {
     mixer.stopAllAction();
@@ -51,8 +67,13 @@ function Player({
   }
 
   return (
-    <group position={position} rotation={rotation} scale={0.5}>
-      <axesHelper />
+    <group
+      onPointerEnter={() => !isPlayer && onHoverChange?.(true)}
+      onPointerLeave={() => !isPlayer && onHoverChange?.(false)}
+      position={position}
+      rotation={rotation}
+      scale={0.5}
+    >
       {isPlayer && (
         <PerspectiveCamera
           makeDefault

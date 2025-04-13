@@ -24,6 +24,9 @@ export function createRoom(roomName: string): RoomStateObject {
 export function createGameRoom(roomName: string): GameRoomStateObject {
   return {
     ...createRoom(roomName),
+    objects: {
+      bullets: [],
+    },
     players: {},
     world: createSimWorld(),
   };

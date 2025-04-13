@@ -17,7 +17,7 @@ export function keyToCommand(key: string): string | undefined {
       case "a":
       return "left";
     case " ":
-      return "fire";
+      return "jump";
     default:
       return; // ignore other keys
   }

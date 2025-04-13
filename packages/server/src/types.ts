@@ -3,6 +3,7 @@ import { Body, World } from "cannon-es";
 export interface Player {
   commands: {
     fire?: boolean;
+    jump?: boolean;
     left?: boolean;
     right?: boolean;
     up?: boolean;
@@ -51,7 +52,25 @@ export function isGameRoomStateObject(
   return (room as GameRoomStateObject)?.players !== undefined;
 }
 
+export interface BulletStateObject {
+  playerId: number;
+  physics: Body;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  rotation: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
 export interface GameRoomStateObject extends RoomStateObject {
+  objects: {
+    bullets: BulletStateObject[];
+  };
   players: { [key: string]: Player };
   world: World;
 }
