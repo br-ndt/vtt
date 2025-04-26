@@ -16,7 +16,7 @@ export function cloneGltfWithAnimations(
   const material = new MeshStandardMaterial({ color });
 
   clone.traverse((child) => {
-    if (isMesh(child)) {
+    if (isMesh(child) && color) {
       child.material = material;
     }
   });

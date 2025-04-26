@@ -70,10 +70,19 @@ function R3F() {
         const player = gameState.players[key];
         return (
           <Player
-            color={player.userId.toString() == user?.id ? "blue" : "orange"}
+            color={
+              player.state === "dead"
+                ? "black"
+                : player.state === "damaged"
+                ? "red"
+                : player.userId.toString() == user?.id
+                ? undefined
+                : "orange"
+            }
             gltf={playerGltf}
             hovered={keysToHover.includes(player.userId)}
             id={player.userId}
+            isDead={player.state === "dead"}
             isMoving={
               (player.velocity.x !== 0 && player.velocity.y !== 0) ||
               player.velocity.z !== 0
@@ -97,9 +106,10 @@ function R3F() {
         return (
           <mesh
             position={[bullet.position.x, bullet.position.y, bullet.position.z]}
+            rotation={[bullet.rotation.x, bullet.rotation.y, bullet.rotation.z]}
           >
             <meshStandardMaterial color="red" />
-            <boxGeometry args={[0.1, 0.1, 0.1]} />
+            <boxGeometry args={[0.1, 0.1, 0.2]} />
           </mesh>
         );
       })}

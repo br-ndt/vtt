@@ -6,7 +6,7 @@ export default function GroundPlane({
   width?: number;
 }) {
   return (
-    <mesh position={[0, 0.3, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh position={[0, 0.65, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial />
     </mesh>

@@ -9,7 +9,14 @@ export interface Player {
     up?: boolean;
     down?: boolean;
   };
+  cooldowns: {
+    damage: number;
+    death: number;
+    fire: number;
+  };
+  health: number;
   isJumping: boolean;
+  lastHitById: string | null;
   physics: Body;
   position: {
     x: number;
@@ -23,6 +30,7 @@ export interface Player {
   };
   selected: boolean;
   userId: number;
+  username: string;
   velocity: {
     x: number;
     y: number;
@@ -71,6 +79,14 @@ export interface GameRoomStateObject extends RoomStateObject {
   objects: {
     bullets: BulletStateObject[];
   };
+  pending: {
+    bulletsToRemove: BulletStateObject[];
+    playersToHarm: Player[];
+    playersToRemove: Player[];
+  };
   players: { [key: string]: Player };
+  scores: {
+    [key: string]: number;
+  };
   world: World;
 }

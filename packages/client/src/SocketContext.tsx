@@ -28,6 +28,7 @@ interface SocketContextType {
       bullets: Bullet[];
     };
     players: { [key: string]: Player };
+    scores: { [key: string]: number };
   };
   getRooms: () => void;
   hover: (id: string, value: boolean) => void;
@@ -40,7 +41,7 @@ const defaultSocketContext: SocketContextType = {
   activeRoom: "",
   changeRoom: () => undefined,
   createRoom: () => undefined,
-  gameState: { objects: { bullets: [] }, players: {} },
+  gameState: { objects: { bullets: [] }, players: {}, scores: {} },
   getRooms: () => undefined,
   hover: () => undefined,
   messages: [],
@@ -70,6 +71,7 @@ export function SocketProvider({ children }: SocketContextProps) {
   const [gameState, setGameState] = useState<{
     objects: { bullets: Bullet[] };
     players: { [key: string]: Player };
+    scores: { [key: string]: number };
   }>(defaultSocketContext.gameState);
 
   useEffect(() => {

@@ -5,7 +5,7 @@ import { useSocket } from "./SocketContext";
 function AuthLayout() {
   const { activeRoom } = useSocket();
 
-  return activeRoom === "lobby" ? <Lobby /> : <GameRoom />;
+  return activeRoom === "lobby" || activeRoom === "" ? <Lobby /> : <GameRoom />;
 }
 
 export default AuthLayout;

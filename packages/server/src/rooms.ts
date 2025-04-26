@@ -27,7 +27,13 @@ export function createGameRoom(roomName: string): GameRoomStateObject {
     objects: {
       bullets: [],
     },
+    pending: {
+      bulletsToRemove: [],
+      playersToHarm: [],
+      playersToRemove: [],
+    },
     players: {},
+    scores: {},
     world: createSimWorld(),
   };
 }
@@ -54,6 +60,12 @@ export function leaveRoom(
   socket.leave(room?.id);
   room?.users?.splice(room.users.indexOf(user), 1);
   if (isGameRoomStateObject(room)) {
+    for (const key of Object.keys(room.players[user.id].cooldowns)) {
+      if (room.players[user.id].cooldowns[key]) {
+        clearTimeout(room.players[user.id].cooldowns[key]);
+      }
+    }
+    delete room.scores[user.id];
     delete room.players[user.id];
   }
   if (room.users.length <= 0 && room.id !== "lobby") {
@@ -88,8 +100,8 @@ export function joinRoom(
   user.activeRoom = nextRoom.id;
   nextRoom.users.push(user);
   if (isGameRoomStateObject(nextRoom)) {
+    nextRoom.scores[user.id] = 0;
     nextRoom.players[user.id] = makeNewPlayer(user.id, user.username);
-    console.log(nextRoom.id);
     nextRoom.world.addBody(nextRoom.players[user.id].physics);
 
     socket.on("control", (command: Command) => {

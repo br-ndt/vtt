@@ -4,8 +4,8 @@ import ChatWindow from "./ChatWindow";
 import R3F from "./R3F";
 
 export function GameRoom() {
-  const { logout } = useAuth();
-  const { activeRoom, changeRoom } = useSocket();
+  const { logout, user } = useAuth();
+  const { activeRoom, changeRoom, gameState } = useSocket();
 
   return (
     <div style={{ position: "relative" }}>
@@ -23,6 +23,32 @@ export function GameRoom() {
             height={500}
             style={{ border: "1px solid black" }}
             /> */}
+        <div
+          style={{
+            alignItems: "flex-start",
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            padding: "4px",
+            width: "30vw",
+            zIndex: 1,
+          }}
+        >
+          <h6 style={{ margin: "2px 0" }}>Room {activeRoom}</h6>
+          <hr style={{ opacity: "30%", width: "100%" }} />
+          {Object.keys(gameState.scores)
+            .sort((a, b) => gameState.scores[b] - gameState.scores[a])
+            .map((key) => (
+              <p
+                style={{
+                  color: key === user?.username ? "yellow" : "white",
+                  margin: "2px 0",
+                }}
+              >
+                {key} {gameState.scores[key]}
+              </p>
+            ))}
+        </div>
         <div
           style={{
             display: "flex",
@@ -53,7 +79,6 @@ export function GameRoom() {
             </button>
           </div>
         </div>
-        <h6 style={{ padding: "4px 8px", zIndex: 1 }}>{activeRoom}</h6>
       </div>
       <R3F />
     </div>

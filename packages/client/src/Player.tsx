@@ -3,16 +3,16 @@ import {
   Clock,
   ColorRepresentation,
   Euler,
+  LoopOnce,
   Object3D,
   Object3DEventMap,
 } from "three";
 
 import { BaseMeshProps } from "./BaseMesh";
-import { RefObject, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ObjectMap, useFrame } from "@react-three/fiber";
 import { GLTF } from "three-stdlib";
 import { cloneGltfWithAnimations } from "./utils/gltf";
-import { isMesh } from "./utils/mesh";
 
 interface PlayerProps
   extends Pick<BaseMeshProps, "onClick" | "position" | "rotation"> {
@@ -20,6 +20,7 @@ interface PlayerProps
   gltf: GLTF & ObjectMap;
   hovered?: boolean;
   id: number;
+  isDead?: boolean;
   isMoving?: boolean;
   isPlayer?: boolean;
   name: string;
@@ -32,16 +33,13 @@ interface PlayerProps
 function Player({
   color,
   gltf,
-  hovered,
-  id,
+  isDead = false,
   isMoving = false,
   isPlayer,
   name,
   onHoverChange,
   position,
-  ref,
   rotation,
-  selected,
 }: PlayerProps) {
   const clock = useRef(new Clock());
   const { clone, mixer } = useMemo(() => {
@@ -51,12 +49,17 @@ function Player({
 
   useEffect(() => {
     mixer.stopAllAction();
-    if (isMoving) {
+    if (isDead) {
+      const action = mixer.clipAction(gltf.animations[1]); // DEAD
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.play();
+    } else if (isMoving) {
       mixer.clipAction(gltf.animations[12]).play(); // WALK
     } else {
       mixer.clipAction(gltf.animations[0]).play(); // IDLE
     }
-  }, [gltf, isMoving, mixer]);
+  }, [gltf, isDead, isMoving, mixer]);
 
   useFrame(() => {
     mixer.update(clock.current.getDelta());
