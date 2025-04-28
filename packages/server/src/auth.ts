@@ -12,6 +12,9 @@ export function passportAuth(
       console.log("Incorrect username");
       return done(null, false, { message: "Incorrect username" });
     }
+    if (!user.verified) {
+      return done(null, false, { message: "Unverified. Check your email" });
+    }
 
     bcrypt.compare(password, user.password, (err, res) => {
       if (err) return done(err);
@@ -32,15 +35,19 @@ export function setupPassport(
   passport.serializeUser(
     (
       _req: IncomingMessage,
-      user: any,
-      done: (arg0: null, arg1: string) => void
+      user: Express.User,
+      done: (arg0: null, arg1: number) => void
     ) => {
-      done(null, user);
+      done(null, user.id);
     }
   );
 
-  passport.deserializeUser((userData: Express.User, done) => {
-    const user = accountList.find((u) => u.username === userData.username);
-    done(null, user);
+  passport.deserializeUser((id: number, done) => {
+    const user = accountList.find((u) => u.id === id);
+    if (user) {
+      done(null, user);
+    } else {
+      done(new Error("user not found"));
+    }
   });
 }

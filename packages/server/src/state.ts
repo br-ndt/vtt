@@ -1,11 +1,8 @@
 import { generateMockUser } from "./mocks";
 
-export function setupServerState(curId: number) {
+export function setupServerState() {
   return {
-    accounts: [
-      generateMockUser("foo", ++curId),
-      generateMockUser("baz", ++curId),
-    ],
+    accounts: [],
     rooms: {
       lobby: {
         id: "lobby",

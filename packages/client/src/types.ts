@@ -1,5 +1,6 @@
 export interface Player {
   health: number;
+  lastHitBy: string;
   position: {
     x: number;
     y: number;

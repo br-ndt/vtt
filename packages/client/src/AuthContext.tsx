@@ -18,6 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,7 +69,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(loggedInUser);
       setIsAuthenticated(true);
     } else {
-      throw new Error("login failed");
+      if (response.status === 401) {
+        const json = await response.json();
+        throw new Error(json.message);
+      }
+      throw new Error("Server error");
     }
   };
 
@@ -81,8 +86,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     setIsAuthenticated(false);
   };
 
+  const register = async (
+    username: string,
+    email: string,
+    password: string
+  ) => {
+    const response = await fetch("/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, email, password }),
+      credentials: "same-origin",
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      return json;
+    } else {
+      throw new Error("Server error");
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, login, logout, register }}
+    >
       {children}
     </AuthContext.Provider>
   );

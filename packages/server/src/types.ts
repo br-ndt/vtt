@@ -16,7 +16,7 @@ export interface Player {
   };
   health: number;
   isJumping: boolean;
-  lastHitById: string | null;
+  lastHitBy: string | null;
   physics: Body;
   position: {
     x: number;

@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import LoginForm from "./LoginForm";
+import AccountForm from "./AccountForm";
 import { SocketProvider } from "./SocketContext";
 
 function AuthLayout() {
@@ -11,7 +11,7 @@ function AuthLayout() {
       <Outlet />
     </SocketProvider>
   ) : (
-    <LoginForm />
+    <AccountForm />
   );
 }
 

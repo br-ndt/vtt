@@ -9,23 +9,27 @@ import { setupPassport } from "./auth";
 import { setupMiddleware } from "./server";
 import { setupServerState } from "./state";
 import { createAuthRouter } from "./routes";
+import { configDotenv } from "dotenv";
 
 declare global {
   namespace Express {
     interface User {
       activeRoom: string;
+      email: string;
       id: number;
       username: string;
+      verificationToken: string;
+      verified: boolean;
     }
   }
 }
 
-let curId = 0;
+configDotenv();
 
 const port = 3000;
 
 // this should be a database at some point lol
-const state: ServerStateObject = setupServerState(curId);
+const state: ServerStateObject = setupServerState();
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
@@ -45,7 +49,7 @@ const sessionMiddleware = session({
 
 setupMiddleware(app, sessionMiddleware);
 
-app.use("/auth", createAuthRouter(io, state.accounts, curId));
+app.use("/auth", createAuthRouter(io, state.accounts));
 
 setupPassport(state.accounts);
 setupSockets(io, sessionMiddleware, state.users, state.rooms);

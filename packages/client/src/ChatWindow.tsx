@@ -1,4 +1,10 @@
-import { KeyboardEvent, useCallback, useState } from "react";
+import {
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
 
@@ -6,6 +12,7 @@ function ChatWindow() {
   const { user } = useAuth();
   const { messages, sendMessage } = useSocket();
   const [message, setMessage] = useState<string>("");
+  const messageContainer = useRef<HTMLDivElement>(null);
 
   const handleSubmit = useCallback(() => {
     sendMessage(message);
@@ -25,6 +32,13 @@ function ChatWindow() {
     [clearMessage, handleSubmit]
   );
 
+  useEffect(() => {
+    if (messageContainer.current) {
+      messageContainer.current.scrollTop =
+        messageContainer.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <div
       style={{
@@ -42,9 +56,11 @@ function ChatWindow() {
         }}
       >
         <div
+          ref={messageContainer}
           style={{
             maxHeight: "90%",
             overflowY: "scroll",
+            scrollBehavior: "smooth",
           }}
         >
           {messages.map((message, i) => (

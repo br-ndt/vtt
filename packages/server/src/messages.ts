@@ -16,17 +16,24 @@ export function messageHandler(
 }
 
 export function serializePlayers(playerDict: { [key: string]: Player }) {
-  return Object.values(playerDict).map((player) => ({
-    ...player,
-    cooldowns: undefined,
-    physics: undefined,
-    state:
-      player.health <= 0
-        ? "dead"
-        : player.cooldowns.damage > 0
-        ? "damaged"
-        : "normal",
-  }));
+  return Object.keys(playerDict).reduce(
+    (prev, key) => ({
+      ...prev,
+      [key]: {
+        ...playerDict[key],
+        cooldowns: undefined,
+        lastHitBy: playerDict[playerDict[key].lastHitBy ?? ""]?.username ?? "",
+        physics: undefined,
+        state:
+          playerDict[key].health <= 0
+            ? "dead"
+            : playerDict[key].cooldowns.damage > 0
+            ? "damaged"
+            : "normal",
+      },
+    }),
+    {}
+  );
 }
 
 export function serializeObjects(objects: { bullets: BulletStateObject[] }) {

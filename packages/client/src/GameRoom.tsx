@@ -17,12 +17,6 @@ export function GameRoom() {
           justifyContent: "flex-end",
         }}
       >
-        {/* <canvas
-            ref={canvasRef}
-            width={500}
-            height={500}
-            style={{ border: "1px solid black" }}
-            /> */}
         <div
           style={{
             alignItems: "flex-start",
@@ -48,6 +42,18 @@ export function GameRoom() {
                 {key} {gameState.scores[key]}
               </p>
             ))}
+        </div>
+        <div
+          style={{
+            color: "white",
+            paddingBottom: "100px",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          {user && gameState.players[user.id]?.state === "dead" ? (
+            <p>Killed by {gameState.players[user.id].lastHitBy ?? "unknown"}</p>
+          ) : null}
         </div>
         <div
           style={{
