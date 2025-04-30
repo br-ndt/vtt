@@ -1,13 +1,13 @@
 import { Server } from "socket.io";
-import { BulletStateObject, Player, RoomStateObject } from "./types";
+import { BulletStateObject, Player, RoomStateObject, UserState } from "./types";
 
 export function messageHandler(
   io: Server,
-  user: Express.User,
+  user: UserState,
   message: string,
   roomDict: { [key: string]: RoomStateObject }
 ) {
-  console.log("Received message from client:", message);
+  console.log(`Message from ${user.username} in ${user.activeRoom}:`, message);
   roomDict[user.activeRoom].messages.push({
     user: user.username,
     content: message,

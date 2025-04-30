@@ -10,6 +10,7 @@ import React, {
 interface User {
   id: string;
   username: string;
+  uuid: string;
 }
 
 // Define the context type

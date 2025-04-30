@@ -2,12 +2,11 @@ import bcrypt from "bcryptjs";
 import { IncomingMessage } from "http";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import User from "../db/models/User";
 
-export function passportAuth(
-  accountList: (Express.User & { password: string })[]
-) {
-  return new LocalStrategy((username, password, done) => {
-    const user = accountList.find((u) => u.username === username);
+export function passportAuth() {
+  return new LocalStrategy(async (username, password, done) => {
+    const user = await User.query().findOne({ username });
     if (!user) {
       console.log("Incorrect username");
       return done(null, false, { message: "Incorrect username" });
@@ -27,10 +26,8 @@ export function passportAuth(
   });
 }
 
-export function setupPassport(
-  accountList: (Express.User & { password: string })[]
-) {
-  passport.use(passportAuth(accountList));
+export function setupPassport() {
+  passport.use(passportAuth());
 
   passport.serializeUser(
     (
@@ -42,12 +39,16 @@ export function setupPassport(
     }
   );
 
-  passport.deserializeUser((id: number, done) => {
-    const user = accountList.find((u) => u.id === id);
-    if (user) {
-      done(null, user);
-    } else {
-      done(new Error("user not found"));
+  passport.deserializeUser(async (id: number, done) => {
+    try {
+      const user = await User.query().findById(id);
+      if (user) {
+        done(null, user);
+      } else {
+        done(new Error("user not found"));
+      }
+    } catch (err) {
+      done(err);
     }
   });
 }

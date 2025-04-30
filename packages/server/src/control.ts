@@ -1,5 +1,5 @@
 import { RoomDict } from "./rooms";
-import { isGameRoomStateObject, RoomStateObject } from "./types";
+import { isGameRoomStateObject, UserState } from "./types";
 
 export interface Command {
   command: string;
@@ -7,12 +7,12 @@ export interface Command {
 }
 
 export function controlHandler(
-  user: Express.User,
+  user: UserState,
   roomDict: RoomDict,
   command: Command
 ) {
   const room = roomDict[user.activeRoom];
   if (isGameRoomStateObject(room)) {
-    room.players[user.id].commands[command.command] = command.value;
+    room.players[user.uuid].commands[command.command] = command.value;
   }
 }

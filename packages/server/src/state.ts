@@ -1,8 +1,6 @@
-import { generateMockUser } from "./mocks";
-
 export function setupServerState() {
   return {
-    accounts: [],
+    connected: [],
     rooms: {
       lobby: {
         id: "lobby",
@@ -11,6 +9,5 @@ export function setupServerState() {
         users: [],
       },
     },
-    users: [],
   };
 }

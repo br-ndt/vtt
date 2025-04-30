@@ -3,6 +3,7 @@ import {
   GameRoomStateObject,
   isGameRoomStateObject,
   RoomStateObject,
+  UserState,
 } from "./types";
 import { Server, Socket } from "socket.io";
 import { Command, controlHandler } from "./control";
@@ -41,7 +42,7 @@ export function createGameRoom(roomName: string): GameRoomStateObject {
 export function leaveRoom(
   socket: Socket,
   io: Server,
-  user: Express.User,
+  user: UserState,
   room: RoomStateObject,
   roomDict: RoomDict
 ) {
@@ -60,13 +61,13 @@ export function leaveRoom(
   socket.leave(room?.id);
   room?.users?.splice(room.users.indexOf(user), 1);
   if (isGameRoomStateObject(room)) {
-    for (const key of Object.keys(room.players[user.id].cooldowns)) {
-      if (room.players[user.id].cooldowns[key]) {
-        clearTimeout(room.players[user.id].cooldowns[key]);
+    for (const key of Object.keys(room.players[user.uuid].cooldowns)) {
+      if (room.players[user.uuid].cooldowns[key]) {
+        clearTimeout(room.players[user.uuid].cooldowns[key]);
       }
     }
-    delete room.scores[user.id];
-    delete room.players[user.id];
+    delete room.scores[user.uuid];
+    delete room.players[user.uuid];
   }
   if (room.users.length <= 0 && room.id !== "lobby") {
     console.log(`deleting empty room ${room.name}`);
@@ -91,7 +92,7 @@ export function leaveRoom(
 
 export function joinRoom(
   socket: Socket,
-  user: Express.User,
+  user: UserState,
   nextRoom: RoomStateObject,
   roomDict: RoomDict
 ) {
@@ -100,9 +101,9 @@ export function joinRoom(
   user.activeRoom = nextRoom.id;
   nextRoom.users.push(user);
   if (isGameRoomStateObject(nextRoom)) {
-    nextRoom.scores[user.id] = 0;
-    nextRoom.players[user.id] = makeNewPlayer(user.id, user.username);
-    nextRoom.world.addBody(nextRoom.players[user.id].physics);
+    nextRoom.scores[user.uuid] = 0;
+    nextRoom.players[user.uuid] = makeNewPlayer(user.uuid, user.username);
+    nextRoom.world.addBody(nextRoom.players[user.uuid].physics);
 
     socket.on("control", (command: Command) => {
       controlHandler(user, roomDict, command);
@@ -119,7 +120,7 @@ export function joinRoom(
 export function changeRoom(
   socket: Socket,
   io: Server,
-  user: Express.User,
+  user: UserState,
   roomDict: RoomDict,
   nextRoom: RoomStateObject,
   prevRoom: RoomStateObject
@@ -131,7 +132,7 @@ export function changeRoom(
 export function changeRoomHandler(
   socket: Socket,
   io: Server,
-  user: Express.User,
+  user: UserState,
   roomDict: RoomDict,
   roomId: string
 ) {
@@ -149,7 +150,7 @@ export function changeRoomHandler(
 export function createRoomHandler(
   socket: Socket,
   io: Server,
-  user: Express.User,
+  user: UserState,
   roomDict: { [key: string]: RoomStateObject }
 ) {
   const room = createGameRoom(`Cool Room #${Object.keys(roomDict).length}`);

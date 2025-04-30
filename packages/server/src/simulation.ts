@@ -51,8 +51,10 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
             const checkPlayer = room.players[player.userId];
             if (checkPlayer) {
               delete room.players[player.userId];
-              room.players[player.userId] = room.players[player.userId] =
-                makeNewPlayer(player.userId, player.username);
+              room.players[player.userId] = makeNewPlayer(
+                player.userId,
+                player.username
+              );
               room.world.addBody(room.players[player.userId].physics);
             }
           }
@@ -109,7 +111,7 @@ export function createSimWorld() {
   return world;
 }
 
-export function makeNewPlayer(userId: number, username: string) {
+export function makeNewPlayer(userId: string, username: string) {
   const position = {
     x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
     y: 4,

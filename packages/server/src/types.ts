@@ -1,4 +1,5 @@
 import { Body, World } from "cannon-es";
+import User from "../db/models/User";
 
 export interface Player {
   commands: {
@@ -29,7 +30,7 @@ export interface Player {
     z: number;
   };
   selected: boolean;
-  userId: number;
+  userId: string;
   username: string;
   velocity: {
     x: number;
@@ -38,20 +39,23 @@ export interface Player {
   };
 }
 
+export interface UserState extends Pick<User, "username" | "uuid"> {
+  activeRoom: string;
+}
+
 export interface ServerStateObject {
-  accounts: (Express.User & { password: string })[];
+  connected: UserState[];
   rooms: {
     lobby: RoomStateObject;
     [key: string]: RoomStateObject | GameRoomStateObject;
   };
-  users: Express.User[];
 }
 
 export interface RoomStateObject {
   id: string;
   messages: { user: string; content: string }[];
   name: string;
-  users: Express.User[];
+  users: UserState[];
 }
 
 export function isGameRoomStateObject(
@@ -61,7 +65,7 @@ export function isGameRoomStateObject(
 }
 
 export interface BulletStateObject {
-  playerId: number;
+  playerId: string;
   physics: Body;
   position: {
     x: number;

@@ -10,35 +10,43 @@ import {
 import { messageHandler } from "./messages";
 import { onlyForHandshake } from "./util";
 import passport from "passport";
+import { UserState } from "./types";
+import User from "../db/models/User";
 
 export async function connectHandler(
   socket: Socket,
   io: Server,
-  userList: Express.User[],
+  userList: UserState[],
   roomDict: RoomDict
 ) {
   const req = socket.request as unknown as Request & { user: Express.User };
-  const sockets = await io.in(`user:${req.user.id}`).fetchSockets();
+  const sockets = await io.in(`user:${req.user.uuid}`).fetchSockets();
   const isUserConnected = sockets.length > 0;
+  const dbUser = await User.query().findOne({ uuid: req.user.uuid });
+  if (!dbUser) {
+    console.error(`No user with uuid ${req.user.uuid}`);
+    return;
+  }
+  const user = { ...dbUser, activeRoom: "lobby" };
 
-  socket.join(`user:${req.user.id}`);
-  socket.join(req.user.activeRoom);
+  socket.join(`user:${user.uuid}`);
+  socket.join("lobby");
 
-  console.log(`A user [${req.user.username}] has connected`);
+  console.log(`A user [${user.username}] has connected`);
 
   if (!isUserConnected) {
-    userList.push(req.user);
+    userList.push(user);
   }
 
-  socket.emit("message", roomDict[req.user.activeRoom]?.messages ?? []);
-  socket.emit("room", req.user.activeRoom);
+  socket.emit("message", roomDict[user.activeRoom]?.messages ?? []);
+  socket.emit("room", user.activeRoom);
 
   socket.on("createRoom", () => {
-    createRoomHandler(socket, io, req.user, roomDict);
+    createRoomHandler(socket, io, user, roomDict);
   });
 
   socket.on("changeRoom", (roomId) => {
-    changeRoomHandler(socket, io, req.user, roomDict, roomId);
+    changeRoomHandler(socket, io, user, roomDict, roomId);
   });
 
   socket.on("getRooms", () => {
@@ -46,22 +54,22 @@ export async function connectHandler(
   });
 
   socket.on("message", (message) => {
-    messageHandler(io, req.user, message, roomDict);
+    messageHandler(io, user, message, roomDict);
   });
 
   socket.on("disconnect", async () => {
-    disconnectHandler(socket, io, req.user, userList, roomDict);
+    disconnectHandler(socket, io, user, userList, roomDict);
   });
 }
 
 export async function disconnectHandler(
   socket: Socket,
   io: Server,
-  user: Express.User,
-  userList: Express.User[],
+  user: UserState,
+  userList: UserState[],
   roomDict: RoomDict
 ) {
-  const sockets = await io.in(`user:${user.id}`).fetchSockets();
+  const sockets = await io.in(`user:${user.uuid}`).fetchSockets();
   const lastSocket = sockets.length === 0;
   changeRoom(
     socket,
@@ -80,7 +88,7 @@ export async function disconnectHandler(
 export function setupSockets(
   io: Server,
   sessionMiddleware: express.RequestHandler,
-  userList: Express.User[],
+  userList: UserState[],
   roomDict: RoomDict
 ) {
   io.engine.use(onlyForHandshake(sessionMiddleware));

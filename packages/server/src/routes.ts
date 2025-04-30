@@ -1,42 +1,37 @@
 import bcrypt from "bcryptjs";
-import express, { Request } from "express";
+import express from "express";
+import { StatusCodes } from "http-status-codes";
 import nodemailer, { Transporter } from "nodemailer";
-
-import { authenticatedRoute } from "./util";
+import { SentMessageInfo, Options } from "nodemailer/lib/smtp-transport";
 import passport from "passport";
 import { Server } from "socket.io";
-import { StatusCodes } from "http-status-codes";
-import { randomUUID } from "crypto";
-import { SentMessageInfo, Options } from "nodemailer/lib/smtp-transport";
 
-let curId = 0;
+import User from "../db/models/User";
+import { authenticatedRoute } from "./util";
 
 function sendVerificationEmail(
   transporter: Transporter<SentMessageInfo, Options>,
-  email: any,
+  username: string,
+  email: string,
   verificationToken: string
 ) {
-  console.log(process.env.GMAIL_EMAIL);
   const mailOptions = {
-    from: process.env.GMAIL_EMAIL,
+    from: "WonkGabe",
     to: email,
-    subject: "Welcome to WonkGabe",
+    subject: `Welcome to WonkGabe, ${username}`,
     html: `<p>Click <a href="${process.env.HOSTNAME}/auth/verify?token=${verificationToken}">here</a> to verify your email.`,
   };
 
   transporter.sendMail(mailOptions, (err, info) => {
     if (err) {
-      console.log(err);
+      console.error(err);
     } else {
       console.log(`Email sent to ${email}: ${info.response}`);
     }
   });
 }
 
-export function createAuthRouter(
-  io: Server,
-  accountList: (Express.User & { password: string })[]
-) {
+export function createAuthRouter(io: Server) {
   const router = express.Router();
   const emailTransporter = nodemailer.createTransport({
     service: "gmail",
@@ -49,35 +44,43 @@ export function createAuthRouter(
     },
   });
   router.get("/current", authenticatedRoute, (req, res) => {
-    res.status(StatusCodes.ACCEPTED).json({ ...req.user, password: undefined });
+    res
+      .status(StatusCodes.ACCEPTED)
+      .json({ uuid: req.user?.uuid, username: req.user?.username });
   });
 
   router.post("/register", async (req, res) => {
     const { username, email, password } = req.body;
-    if (accountList.find((user) => user.username === username) !== undefined) {
+    const existingUser = await User.query().findOne({ email, username });
+    if (existingUser) {
+      let match = username === existingUser.username ? "username" : "email";
       res
         .status(StatusCodes.BAD_REQUEST)
-        .send("A user with this username exists");
-    }
-    if (accountList.find((user) => user.email === email) !== undefined) {
-      res.status(StatusCodes.BAD_REQUEST).send("A user with this email exists");
+        .send(`A user with this ${match} exists`);
+      return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    ++curId;
-    const verificationToken = randomUUID().toString();
-    const newUser: Express.User & { password: string } = {
-      activeRoom: "lobby",
-      email,
-      id: curId,
-      username,
-      password: hashedPassword,
-      verificationToken,
-      verified: false,
-    };
-    accountList.push(newUser);
 
-    sendVerificationEmail(emailTransporter, email, verificationToken);
+    try {
+      const newUser = await User.query()
+        .insert({
+          email,
+          password: hashedPassword,
+          username,
+        })
+        .returning("*");
+      sendVerificationEmail(
+        emailTransporter,
+        username,
+        email,
+        newUser.verificationToken
+      );
+    } catch (err) {
+      console.error(err);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR);
+      return;
+    }
 
     res
       .status(StatusCodes.CREATED)
@@ -85,14 +88,20 @@ export function createAuthRouter(
   });
 
   router.get("/verify", async (req, res) => {
-    const user = accountList.find(
-      (user) => user.verificationToken === req.query.token
-    );
-    console.log(user);
+    const user = await User.query().findOne({
+      verificationToken: req.query.token,
+    });
     if (user && !user.verified) {
-      user.verified = true;
+      try {
+        await User.query().findById(user.id).update({ verified: true });
+      } catch (err) {
+        console.error(err);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR);
+        return;
+      }
+      return res.status(StatusCodes.PERMANENT_REDIRECT).redirect("/");
     }
-    return res.status(StatusCodes.PERMANENT_REDIRECT).redirect("/");
+    res.status(StatusCodes.NOT_FOUND).send("Not found.");
   });
 
   router.post("/login", (req, res, next) => {
@@ -114,7 +123,7 @@ export function createAuthRouter(
           }
           return res
             .status(StatusCodes.ACCEPTED)
-            .json({ ...req.user, password: undefined });
+            .json({ uuid: req.user?.uuid, username: req.user?.username });
         });
       }
     )(req, res, next);

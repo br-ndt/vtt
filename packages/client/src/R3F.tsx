@@ -87,7 +87,7 @@ function R3F() {
               (player.velocity.x !== 0 && player.velocity.y !== 0) ||
               player.velocity.z !== 0
             }
-            isPlayer={player.userId.toString() == user?.id}
+            isPlayer={player.userId.toString() == user?.uuid}
             key={player.userId}
             name={player.username}
             onClick={(event) => {
