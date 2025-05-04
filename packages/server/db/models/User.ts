@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { BaseModel } from "./Base";
 
 class User extends BaseModel {
@@ -9,10 +10,20 @@ class User extends BaseModel {
   username!: string;
   uuid!: string;
   verificationToken!: string;
+  verificationTokenExpiresAt!: Date;
   verified!: boolean;
-  
+
   static get tableName() {
     return "users";
+  }
+
+  $beforeInsert() {
+    const now = new Date();
+    this.uuid = randomUUID();
+    this.verificationToken = randomUUID();
+    this.verificationTokenExpiresAt = new Date(
+      now.getTime() + 1000 * 60 * 60 * 24
+    );
   }
 }
 
