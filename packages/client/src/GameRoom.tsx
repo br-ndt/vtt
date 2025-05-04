@@ -34,6 +34,7 @@ export function GameRoom() {
             .sort((a, b) => gameState.scores[b] - gameState.scores[a])
             .map((key) => (
               <p
+                key={`${key}_score`}
                 style={{
                   color: key === user?.username ? "yellow" : "white",
                   margin: "2px 0",
@@ -51,8 +52,8 @@ export function GameRoom() {
             zIndex: 1,
           }}
         >
-          {user && gameState.players[user.id]?.state === "dead" ? (
-            <p>Killed by {gameState.players[user.id].lastHitBy ?? "unknown"}</p>
+          {user && gameState.players[user.uuid]?.state === "dead" ? (
+            <p>Killed by {gameState.players[user.uuid].lastHitBy ?? "unknown"}</p>
           ) : null}
         </div>
         <div

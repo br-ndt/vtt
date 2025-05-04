@@ -12,7 +12,7 @@ export function controlHandler(
   command: Command
 ) {
   const room = roomDict[user.activeRoom];
-  if (isGameRoomStateObject(room)) {
+  if (isGameRoomStateObject(room) && room.players[user.uuid]) {
     room.players[user.uuid].commands[command.command] = command.value;
   }
 }

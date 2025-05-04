@@ -66,7 +66,7 @@ const sessionMiddleware = session({
 
 setupMiddleware(app, sessionMiddleware);
 
-app.use("/auth", createAuthRouter(io));
+app.use("/auth", createAuthRouter(io, state));
 
 setupPassport();
 setupSockets(io, sessionMiddleware, state.connected, state.rooms);

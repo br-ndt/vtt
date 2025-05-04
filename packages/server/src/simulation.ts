@@ -1,10 +1,28 @@
-import { Body, Box, Plane, Quaternion, Sphere, Vec3, World } from "cannon-es";
+import {
+  Body,
+  Box,
+  Cylinder,
+  Material,
+  Plane,
+  Quaternion,
+  Sphere,
+  Vec3,
+  World,
+} from "cannon-es";
 import { Server } from "socket.io";
 import {
+  AIMCONE,
+  BULLET_FORCE,
+  COOLDOWNS_DAMAGE,
+  COOLDOWNS_DEATH,
+  COOLDOWNS_FIRE,
   GROUND_HEIGHT,
+  JUMP_FORCE,
+  KNOCKBACK_FORCE,
   MAX_HEIGHT,
   MAX_WIDTH,
   PLAYER_MAX_HEALTH,
+  PLAYER_RADIUS,
 } from "./constants";
 import { RoomDict } from "./rooms";
 import {
@@ -13,7 +31,7 @@ import {
   isGameRoomStateObject,
   Player,
 } from "./types";
-import { getRandomIntInclusive } from "./util";
+import { getRandomIntInclusive, randomInRange } from "./util";
 import {
   serializeObjects,
   serializePlayers,
@@ -36,13 +54,13 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
         if (isGameRoomStateObject(room)) {
           // deal damage to players hit last tick
           for (const player of room.pending.playersToHarm) {
-            player.cooldowns.damage = 1;
+            player.cooldowns.damage = COOLDOWNS_DAMAGE;
             player.health -= 1;
             if (player.health <= 0 && player.cooldowns.death === 0) {
               if (player.lastHitBy) {
                 room.scores[player.lastHitBy] += 1;
               }
-              player.cooldowns.death = 3;
+              player.cooldowns.death = COOLDOWNS_DEATH;
             }
           }
           // remove any player objects destroyed last tick
@@ -102,6 +120,7 @@ export function createSimWorld() {
   const groundBody = new Body({
     collisionFilterGroup: GROUP_1,
     collisionFilterMask: GROUP_2 | GROUP_3,
+    material: new Material({ restitution: 0 }),
     shape: new Plane(),
     type: Body.STATIC,
   });
@@ -111,7 +130,7 @@ export function createSimWorld() {
   return world;
 }
 
-export function makeNewPlayer(userId: string, username: string) {
+export function makeNewPlayer(userId: string, username: string): Player {
   const position = {
     x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
     y: 4,
@@ -122,9 +141,23 @@ export function makeNewPlayer(userId: string, username: string) {
     collisionFilterGroup: GROUP_2,
     linearDamping: 0.8,
     mass: 5,
-    shape: new Sphere(0.65),
+    material: new Material({ restitution: 0 }),
   });
+  const cylinder = new Cylinder(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_RADIUS, 8);
+  const quat = new Quaternion();
+  quat.setFromAxisAngle(new Vec3(1, 0, 0), Math.PI / 2);
+  body.addShape(cylinder, new Vec3(0, 1.5 * PLAYER_RADIUS, 0), quat);
+  // Sphere (bottom cap)
+  const sphereBottom = new Sphere(PLAYER_RADIUS);
+  body.addShape(sphereBottom, new Vec3(0, PLAYER_RADIUS, 0));
+
+  // Sphere (top cap)
+  const sphereTop = new Sphere(PLAYER_RADIUS);
+  body.addShape(sphereTop, new Vec3(0, 2 * PLAYER_RADIUS, 0));
+
   body.position.set(position.x, position.y, position.z);
+  body.angularFactor = new Vec3(0, 1, 0);
+  body.updateMassProperties();
 
   return {
     commands: {},
@@ -156,6 +189,7 @@ export function makeNewPlayer(userId: string, username: string) {
 
 function makeNewBullet(
   creator: Player,
+  pitch: number,
   room: GameRoomStateObject
 ): BulletStateObject {
   const forward = new Vec3(0, 0, 1);
@@ -166,21 +200,25 @@ function makeNewBullet(
     mass: 1,
     shape: new Box(new Vec3(0.3, 0.3, 0.3)),
   });
-  body.position.set(
-    creator.position.x,
-    creator.position.y + 1,
-    creator.position.z + 0.35
-  );
+  const recoilPitch = pitch + randomInRange(-AIMCONE, AIMCONE);
+  const recoilYaw = creator.rotation.y + randomInRange(-AIMCONE, AIMCONE);
   body.quaternion = new Quaternion().setFromEuler(
-    creator.rotation.x,
-    creator.rotation.y,
-    creator.rotation.z
+    recoilPitch,
+    recoilYaw,
+    0,
+    "YXZ"
   );
   const worldDirection = new Vec3();
+  body.position.set(
+    creator.position.x + worldDirection.x,
+    creator.position.y + worldDirection.y + 0.75,
+    creator.position.z + worldDirection.z
+  );
   body.quaternion.vmult(forward, worldDirection);
-  body.applyImpulse(worldDirection.scale(50), body.position);
+  body.applyImpulse(worldDirection.scale(BULLET_FORCE), body.position);
 
-  const bullet = {
+  const bullet: BulletStateObject = {
+    collided: false,
     playerId: creator.userId,
     physics: body,
     position: body.position,
@@ -188,6 +226,9 @@ function makeNewBullet(
   };
 
   body.addEventListener("collide", (event) => {
+    if (bullet.collided) {
+      return;
+    }
     const hitPlayer =
       event.body.collisionFilterGroup === GROUP_2
         ? room.players[
@@ -197,11 +238,12 @@ function makeNewBullet(
           ]
         : undefined;
     if (hitPlayer && hitPlayer.userId !== creator.userId) {
+      bullet.collided = true;
       if (!hitPlayer.cooldowns.damage) {
-        const knockbackDir = body.quaternion.vmult(new Vec3(-1, -1, -1));
+        const knockbackDir = body.quaternion.vmult(new Vec3(0, 0, 1));
         knockbackDir.normalize();
         hitPlayer.physics.applyImpulse(
-          knockbackDir.scale(20),
+          knockbackDir.scale(KNOCKBACK_FORCE),
           hitPlayer.physics.position
         );
         room.pending.playersToHarm.push(hitPlayer);
@@ -222,8 +264,10 @@ export function stepPlayer(
   let vx = 0;
   let vy = 0;
   let vz = 0;
+  let yaw = 0;
+  let pitch = 0;
   const speed = 15;
-  const impulse = new Vec3(0, 100, 0);
+  const impulse = new Vec3(0, JUMP_FORCE, 0);
   let jumpedThisFrame = false;
 
   player.position = player.physics.position;
@@ -232,7 +276,7 @@ export function stepPlayer(
     if (
       !player.isJumping &&
       player.commands.jump &&
-      player.position.y <= GROUND_HEIGHT + 0.65
+      player.position.y <= GROUND_HEIGHT
     ) {
       player.physics.applyImpulse(impulse, player.physics.position);
       player.isJumping = true;
@@ -253,6 +297,10 @@ export function stepPlayer(
     } else if (player.commands.left) {
       vx = 1;
     }
+    if (player.commands?.facing) {
+      yaw = player.commands.facing?.yaw ?? yaw;
+      pitch = player.commands.facing?.pitch ?? pitch;
+    }
   }
 
   if (vx !== 0 && vz !== 0) {
@@ -262,30 +310,36 @@ export function stepPlayer(
   }
 
   vz *= -speed * dt;
-  vx *= (speed / 8) * dt;
-  player.rotation.y += vx * (player.isJumping ? 0.4 : 1);
+  vx *= (speed / 2) * dt;
 
-  if (player.rotation.y > 2 * Math.PI) {
-    player.rotation.y -= 2 * Math.PI;
-  } else if (player.rotation.y < 0) {
-    player.rotation.y += 2 * Math.PI;
+  // below makes left/right rotate instead of strafe
+  // player.rotation.y += vx * (player.isJumping ? 0.4 : 1);
+
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  if (player.health <= 0) {
+    player.velocity.x = 0;
+    player.velocity.y = 0;
+    player.velocity.z = 0;
+  } else {
+    player.velocity.x = cos * vx + sin * vz;
+    player.velocity.y += vy * dt;
+    player.velocity.z = cos * vz - sin * vx;
+
+    player.rotation.y = yaw;
   }
 
-  player.velocity.x = vx;
-  player.velocity.y += vy;
-  player.velocity.z = vz;
+  player.position.x += player.velocity.x;
+  player.position.y += player.velocity.y;
+  player.position.z += player.velocity.z;
 
-  player.position.x += Math.sin(player.rotation.y) * player.velocity.z;
-  player.position.y += player.velocity.y * dt;
-  player.position.z += Math.cos(player.rotation.y) * player.velocity.z;
-
-  if (player.position.y <= GROUND_HEIGHT + 0.65) {
+  if (player.position.y <= GROUND_HEIGHT) {
     if (player.isJumping && !jumpedThisFrame) {
       player.isJumping = false;
       player.physics.velocity.set(0, 0, 0);
       player.physics.angularVelocity.set(0, 0, 0);
     }
-    player.position.y = GROUND_HEIGHT + 0.65;
+    player.position.y = GROUND_HEIGHT;
   }
   if (player.position.x > MAX_WIDTH) {
     player.position.x = MAX_WIDTH;
@@ -309,8 +363,8 @@ export function stepPlayer(
     player.commands.fire &&
     player.cooldowns.fire === 0
   ) {
-    const bullet = makeNewBullet(player, room);
-    player.cooldowns.fire = 0.5;
+    const bullet = makeNewBullet(player, pitch, room);
+    player.cooldowns.fire = COOLDOWNS_FIRE;
     room.world.addBody(bullet.physics);
     room.objects.bullets.push(bullet);
   }

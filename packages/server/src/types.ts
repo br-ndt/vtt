@@ -3,6 +3,10 @@ import User from "../db/models/User";
 
 export interface Player {
   commands: {
+    facing?: {
+      pitch?: number;
+      yaw?: number;
+    };
     fire?: boolean;
     jump?: boolean;
     left?: boolean;
@@ -65,6 +69,7 @@ export function isGameRoomStateObject(
 }
 
 export interface BulletStateObject {
+  collided: boolean;
   playerId: string;
   physics: Body;
   position: {

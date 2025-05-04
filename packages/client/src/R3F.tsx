@@ -1,20 +1,30 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useGLTF } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
+import { Object3D } from "three";
+
+import { wrapAngle } from "./utils/math";
+
+import { useAuth } from "./AuthContext";
+import BigLight from "./BigLight";
+import GroundPlane from "./GroundPlane";
 import Player from "./Player";
 import { useSocket } from "./SocketContext";
-import { useAuth } from "./AuthContext";
-import { useCallback, useState } from "react";
-import GroundPlane from "./GroundPlane";
-import BigLight from "./BigLight";
-import { useGLTF } from "@react-three/drei";
+
+const CAMERA_SENSITIVITY = 0.001;
 
 function R3F() {
   const { user } = useAuth();
-  const { gameState } = useSocket();
+  const { gameState, updateFacing } = useSocket();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [pitch, setPitch] = useState(0);
+  const [yaw, setYaw] = useState(0);
   const [keysToHover, setKeysToHover] = useState<number[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<{ [key: number]: boolean }>(
     {}
   );
   const playerGltf = useGLTF("/Mech_FinnTheFrog.glb");
+  const currentPlayer = useRef<Object3D | null>(null);
 
   const onHover = useCallback(
     (key: number, value: boolean) => {
@@ -52,8 +62,48 @@ function R3F() {
     [setSelectedKeys]
   );
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // do it at the onset
+    canvas.requestPointerLock();
+
+    const handleClick = () => {
+      // register relocking for after the user hits ESC
+      canvas.requestPointerLock();
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (document.pointerLockElement === canvas) {
+        const deltaX = event.movementX;
+        const deltaY = event.movementY;
+
+        setYaw((prevYaw) => wrapAngle(prevYaw - deltaX * CAMERA_SENSITIVITY));
+        setPitch((prevPitch) =>
+          Math.max(
+            -Math.PI / 16,
+            Math.min(Math.PI / 180, prevPitch + deltaY * CAMERA_SENSITIVITY)
+          )
+        );
+      }
+    };
+
+    canvas.addEventListener("click", handleClick);
+    window.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      canvas.removeEventListener("click", handleClick);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []);
+
+  useEffect(() => {
+    updateFacing?.(yaw, pitch);
+  }, [pitch, updateFacing, yaw]);
+
   return (
     <Canvas
+      ref={canvasRef ? canvasRef : undefined}
       shadows
       style={{
         background: "black",
@@ -70,6 +120,7 @@ function R3F() {
         const player = gameState.players[key];
         return (
           <Player
+            cameraPitch={pitch}
             color={
               player.state === "dead"
                 ? "black"
@@ -96,15 +147,21 @@ function R3F() {
             }}
             onHoverChange={(value) => onHover(player.userId, value)}
             position={[player.position.x, player.position.y, player.position.z]}
-            rotation={[player.rotation.x, player.rotation.y, player.rotation.z]}
+            ref={currentPlayer}
+            rotation={[
+              player.rotation.x,
+              player.userId.toString() == user?.uuid ? yaw : player.rotation.y,
+              player.rotation.z,
+            ]}
             selected={selectedKeys?.[player.userId] === true}
             wireframe={player.selected}
           />
         );
       })}
-      {gameState.objects.bullets.map((bullet) => {
+      {gameState.objects.bullets.map((bullet, i) => {
         return (
           <mesh
+            key={`bullet_${bullet.playerId}_${i}`}
             position={[bullet.position.x, bullet.position.y, bullet.position.z]}
             rotation={[bullet.rotation.x, bullet.rotation.y, bullet.rotation.z]}
           >

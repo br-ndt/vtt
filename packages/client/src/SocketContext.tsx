@@ -35,6 +35,7 @@ interface SocketContextType {
   messages: Message[];
   rooms: RoomInfo[];
   sendMessage: (message: string) => void;
+  updateFacing: (yaw: number, pitch: number) => void;
 }
 
 const defaultSocketContext: SocketContextType = {
@@ -47,6 +48,7 @@ const defaultSocketContext: SocketContextType = {
   messages: [],
   rooms: [],
   sendMessage: () => undefined,
+  updateFacing: () => undefined,
 };
 
 const SocketContext = createContext<SocketContextType | undefined>(
@@ -101,7 +103,7 @@ export function SocketProvider({ children }: SocketContextProps) {
 
   useEffect(() => {
     function onMouseDown(e: MouseEvent) {
-      if (!socket) {
+      if (!socket || activeRoom === "lobby") {
         return;
       }
       if (e.button === 0) {
@@ -109,7 +111,7 @@ export function SocketProvider({ children }: SocketContextProps) {
       }
     }
     function onMouseUp(e: MouseEvent) {
-      if (!socket) {
+      if (!socket || activeRoom === "lobby") {
         return;
       }
       if (e.button === 0) {
@@ -118,7 +120,7 @@ export function SocketProvider({ children }: SocketContextProps) {
     }
 
     function onKeyDown(e: KeyboardEvent) {
-      if (!socket) {
+      if (!socket || activeRoom === "lobby") {
         return;
       }
       const command = keyToCommand(e.key);
@@ -127,7 +129,7 @@ export function SocketProvider({ children }: SocketContextProps) {
       }
     }
     function onKeyUp(e: KeyboardEvent) {
-      if (!socket) {
+      if (!socket || activeRoom === "lobby") {
         return;
       }
       const command = keyToCommand(e.key);
@@ -182,6 +184,13 @@ export function SocketProvider({ children }: SocketContextProps) {
     [socket]
   );
 
+  const updateFacing = useCallback(
+    (yaw: number, pitch: number) => {
+      socket?.emit("control", { command: "facing", value: { pitch, yaw } });
+    },
+    [socket]
+  );
+
   return (
     <SocketContext.Provider
       value={{
@@ -194,6 +203,7 @@ export function SocketProvider({ children }: SocketContextProps) {
         messages,
         rooms,
         sendMessage,
+        updateFacing,
       }}
     >
       {children}

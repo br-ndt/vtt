@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 
 import User from "../db/models/User";
 import { authenticatedRoute } from "./util";
+import { ServerStateObject } from "./types";
 
 function sendVerificationEmail(
   transporter: Transporter<SentMessageInfo, Options>,
@@ -31,7 +32,7 @@ function sendVerificationEmail(
   });
 }
 
-export function createAuthRouter(io: Server) {
+export function createAuthRouter(io: Server, state: ServerStateObject) {
   const router = express.Router();
   const emailTransporter = nodemailer.createTransport({
     service: "gmail",
@@ -51,6 +52,7 @@ export function createAuthRouter(io: Server) {
 
   router.post("/register", async (req, res) => {
     const { username, email, password } = req.body;
+    console.log("register handler...");
     const existingUser = await User.query().findOne({ email, username });
     if (existingUser) {
       let match = username === existingUser.username ? "username" : "email";
@@ -115,6 +117,14 @@ export function createAuthRouter(io: Server) {
           return res
             .status(StatusCodes.UNAUTHORIZED)
             .json({ success: false, message: info.message });
+        }
+        if (state.connected.find((u) => u.uuid === user.uuid)) {
+          return res
+            .status(StatusCodes.CONFLICT)
+            .json({
+              success: false,
+              message: "You are logged in elsewhere. Try again later.",
+            });
         }
 
         req.login(user, (err) => {

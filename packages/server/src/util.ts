@@ -1,10 +1,5 @@
 import { RequestHandler } from "express";
-import {
-  NextFunction,
-  ParamsDictionary,
-  Request,
-  Response,
-} from "express-serve-static-core";
+import { NextFunction, ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
 
 export function getRandomIntInclusive(min: number, max: number) {
@@ -38,4 +33,8 @@ export function onlyForHandshake(
       next();
     }
   };
+}
+
+export function randomInRange(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
 }

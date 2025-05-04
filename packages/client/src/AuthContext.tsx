@@ -70,11 +70,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setUser(loggedInUser);
       setIsAuthenticated(true);
     } else {
-      if (response.status === 401) {
+      let error = "Server error";
+      try {
         const json = await response.json();
-        throw new Error(json.message);
+        error = json.message;
+      } catch (err) {
+        error += err;
+      } finally {
+        throw new Error(error);
       }
-      throw new Error("Server error");
     }
   };
 
