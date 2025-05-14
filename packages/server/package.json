@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@types/nodemailer": "^6.4.17",
+    "alea": "^1.0.1",
     "bcryptjs": "^3.0.2",
     "cannon-es": "^0.20.0",
     "cookie-parser": "^1.4.7",
@@ -37,6 +38,7 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.15.6",
+    "simplex-noise": "^4.0.3",
     "socket.io": "^4.8.1",
     "ts-node": "^10.9.2"
   }

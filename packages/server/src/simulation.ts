@@ -3,24 +3,25 @@ import {
   Box,
   Cylinder,
   Material,
-  Plane,
   Quaternion,
   Sphere,
   Vec3,
-  World,
 } from "cannon-es";
 import { Server } from "socket.io";
 import {
   AIMCONE,
   BULLET_FORCE,
+  COLLISION_GROUP_2,
+  COLLISION_GROUP_3,
   COOLDOWNS_DAMAGE,
   COOLDOWNS_DEATH,
   COOLDOWNS_FIRE,
   GROUND_HEIGHT,
+  GROUND_THRESHOLD,
   JUMP_FORCE,
   KNOCKBACK_FORCE,
-  MAX_HEIGHT,
-  MAX_WIDTH,
+  MAP_DEPTH,
+  MAP_WIDTH,
   PLAYER_MAX_HEALTH,
   PLAYER_RADIUS,
 } from "./constants";
@@ -30,6 +31,7 @@ import {
   GameRoomStateObject,
   isGameRoomStateObject,
   Player,
+  V3,
 } from "./types";
 import { getRandomIntInclusive, randomInRange } from "./util";
 import {
@@ -37,10 +39,7 @@ import {
   serializePlayers,
   serializeScores,
 } from "./messages";
-
-const GROUP_1 = 1;
-const GROUP_2 = 2;
-const GROUP_3 = 3;
+import { getSpawnPoint } from "./world";
 
 export function beginSimulation(io: Server, roomDict: RoomDict) {
   const FPS = 60;
@@ -71,7 +70,8 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
               delete room.players[player.userId];
               room.players[player.userId] = makeNewPlayer(
                 player.userId,
-                player.username
+                player.username,
+                getSpawnPoint(room.heightFunc)
               );
               room.world.addBody(room.players[player.userId].physics);
             }
@@ -89,8 +89,8 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
           for (const bullet of room.objects.bullets) {
             bullet.position = bullet.physics.position;
             if (
-              (Math.abs(bullet.position.z) > MAX_HEIGHT ||
-                Math.abs(bullet.position.x) > MAX_WIDTH) &&
+              (Math.abs(bullet.position.z) > MAP_DEPTH ||
+                Math.abs(bullet.position.x) > MAP_WIDTH) &&
               !room.pending.bulletsToRemove.includes(bullet)
             ) {
               room.pending.bulletsToRemove.push(bullet);
@@ -113,32 +113,13 @@ export function beginSimulation(io: Server, roomDict: RoomDict) {
   }, 1000 / FPS);
 }
 
-export function createSimWorld() {
-  const world = new World({
-    gravity: new Vec3(0, -9.82, 0),
-  });
-  const groundBody = new Body({
-    collisionFilterGroup: GROUP_1,
-    collisionFilterMask: GROUP_2 | GROUP_3,
-    material: new Material({ restitution: 0 }),
-    shape: new Plane(),
-    type: Body.STATIC,
-  });
-  groundBody.position.set(0, GROUND_HEIGHT - 0.1, 0);
-  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-  world.addBody(groundBody);
-  return world;
-}
-
-export function makeNewPlayer(userId: string, username: string): Player {
-  const position = {
-    x: getRandomIntInclusive(-MAX_WIDTH, MAX_WIDTH),
-    y: 4,
-    z: getRandomIntInclusive(-MAX_HEIGHT, MAX_HEIGHT),
-  };
-
+export function makeNewPlayer(
+  userId: string,
+  username: string,
+  position: V3
+): Player {
   const body = new Body({
-    collisionFilterGroup: GROUP_2,
+    collisionFilterGroup: COLLISION_GROUP_2,
     linearDamping: 0.8,
     mass: 5,
     material: new Material({ restitution: 0 }),
@@ -194,7 +175,7 @@ function makeNewBullet(
 ): BulletStateObject {
   const forward = new Vec3(0, 0, 1);
   const body = new Body({
-    collisionFilterGroup: GROUP_3,
+    collisionFilterGroup: COLLISION_GROUP_3,
     collisionResponse: false,
     linearDamping: 0.4,
     mass: 1,
@@ -230,7 +211,7 @@ function makeNewBullet(
       return;
     }
     const hitPlayer =
-      event.body.collisionFilterGroup === GROUP_2
+      event.body.collisionFilterGroup === COLLISION_GROUP_2
         ? room.players[
             Object.keys(room.players).find(
               (key) => room.players[key].physics.id === event.body.id
@@ -250,6 +231,9 @@ function makeNewBullet(
         hitPlayer.lastHitBy = creator.userId.toString();
       }
       room.pending.bulletsToRemove.push(bullet);
+    } else if (event.body.collisionFilterGroup !== COLLISION_GROUP_2) {
+      bullet.collided = true;
+      room.pending.bulletsToRemove.push(bullet);
     }
   });
 
@@ -262,27 +246,22 @@ export function stepPlayer(
   dt: number
 ): Player {
   let vx = 0;
-  let vy = 0;
   let vz = 0;
   let yaw = 0;
   let pitch = 0;
   const speed = 15;
   const impulse = new Vec3(0, JUMP_FORCE, 0);
-  let jumpedThisFrame = false;
+  let grounded = false;
+  const terrainY = room.heightFunc(player.position.x, player.position.z);
+  const dy = player.physics.position.y - terrainY;
 
   player.position = player.physics.position;
 
-  if (player.health > 0) {
-    if (
-      !player.isJumping &&
-      player.commands.jump &&
-      player.position.y <= GROUND_HEIGHT
-    ) {
-      player.physics.applyImpulse(impulse, player.physics.position);
-      player.isJumping = true;
-      jumpedThisFrame = true;
-    }
+  if (dy <= GROUND_THRESHOLD) {
+    grounded = true;
+  }
 
+  if (player.health > 0) {
     if (player.commands.down) {
       if (!player.commands.up) {
         vz = 1;
@@ -309,52 +288,62 @@ export function stepPlayer(
     vz /= magnitude;
   }
 
-  vz *= -speed * dt;
-  vx *= (speed / 2) * dt;
-
-  // below makes left/right rotate instead of strafe
-  // player.rotation.y += vx * (player.isJumping ? 0.4 : 1);
+  vz *= -speed;
+  vx *= speed / 2;
 
   const cos = Math.cos(yaw);
   const sin = Math.sin(yaw);
   if (player.health <= 0) {
     player.velocity.x = 0;
-    player.velocity.y = 0;
     player.velocity.z = 0;
   } else {
     player.velocity.x = cos * vx + sin * vz;
-    player.velocity.y += vy * dt;
     player.velocity.z = cos * vz - sin * vx;
+    if (player.position.x > MAP_WIDTH) {
+      player.velocity.x = 0;
+    } else if (player.position.x < -MAP_WIDTH) {
+      player.velocity.x = 0;
+    }
 
+    if (player.position.z > MAP_DEPTH) {
+      player.velocity.z = 0;
+    } else if (player.position.z < -MAP_DEPTH) {
+      player.velocity.z = 0;
+    }
     player.rotation.y = yaw;
   }
 
-  player.position.x += player.velocity.x;
-  player.position.y += player.velocity.y;
-  player.position.z += player.velocity.z;
+  player.physics.velocity.x = player.velocity.x;
+  player.physics.velocity.z = player.velocity.z;
 
-  if (player.position.y <= GROUND_HEIGHT) {
-    if (player.isJumping && !jumpedThisFrame) {
-      player.isJumping = false;
-      player.physics.velocity.set(0, 0, 0);
-      player.physics.angularVelocity.set(0, 0, 0);
-    }
-    player.position.y = GROUND_HEIGHT;
+  player.position.x = player.physics.position.x;
+  player.position.z = player.physics.position.z;
+
+  if (player.position.x > MAP_WIDTH) {
+    player.position.x = MAP_WIDTH;
+  } else if (player.position.x < -MAP_WIDTH) {
+    player.position.x = -MAP_WIDTH;
   }
-  if (player.position.x > MAX_WIDTH) {
-    player.position.x = MAX_WIDTH;
-    player.physics.velocity.set(0, 0, 0);
-  } else if (player.position.x < -MAX_WIDTH) {
-    player.position.x = -MAX_WIDTH;
-    player.physics.velocity.set(0, 0, 0);
+  if (player.position.z > MAP_DEPTH) {
+    player.position.z = MAP_DEPTH;
+  } else if (player.position.z < -MAP_DEPTH) {
+    player.position.z = -MAP_DEPTH;
   }
 
-  if (player.position.z > MAX_HEIGHT) {
-    player.position.z = MAX_HEIGHT;
-    player.physics.velocity.set(0, 0, 0);
-  } else if (player.position.z < -MAX_HEIGHT) {
-    player.position.z = -MAX_HEIGHT;
-    player.physics.velocity.set(0, 0, 0);
+  if (dy < GROUND_HEIGHT) {
+    // fallen through: snap back to surface
+    player.physics.position.y = terrainY;
+    player.physics.velocity.y = 0;
+    player.physics.angularVelocity.set(0, 0, 0);
+    player.isJumping = false;
+  } else if (dy < GROUND_THRESHOLD) {
+    player.physics.position.y = terrainY;
+    player.isJumping = false;
+  }
+
+  if (!player.isJumping && player.commands.jump && grounded) {
+    player.physics.applyImpulse(impulse, player.physics.position);
+    player.isJumping = true;
   }
 
   // make a bullet for every shooting player that can shoot

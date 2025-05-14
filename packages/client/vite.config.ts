@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
   ],
   server: {
+    allowedHosts: ["game.br-ndt.dev"],
     host: "0.0.0.0",
     proxy: {
       "/api": {

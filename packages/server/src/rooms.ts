@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import {
   GameRoomStateObject,
   isGameRoomStateObject,
@@ -7,36 +6,11 @@ import {
 } from "./types";
 import { Server, Socket } from "socket.io";
 import { Command, controlHandler } from "./control";
-import { createSimWorld, makeNewPlayer } from "./simulation";
+import { makeNewPlayer } from "./simulation";
+import { createGameRoom, getSpawnPoint } from "./world";
 
 export interface RoomDict {
   [key: string]: RoomStateObject;
-}
-
-export function createRoom(roomName: string): RoomStateObject {
-  return {
-    id: randomUUID(),
-    messages: [],
-    name: roomName,
-    users: [],
-  };
-}
-
-export function createGameRoom(roomName: string): GameRoomStateObject {
-  return {
-    ...createRoom(roomName),
-    objects: {
-      bullets: [],
-    },
-    pending: {
-      bulletsToRemove: [],
-      playersToHarm: [],
-      playersToRemove: [],
-    },
-    players: {},
-    scores: {},
-    world: createSimWorld(),
-  };
 }
 
 export function leaveRoom(
@@ -51,10 +25,6 @@ export function leaveRoom(
   if (isGameRoomStateObject(room)) {
     socket.off("control", (command: Command) => {
       controlHandler(user, roomDict, command);
-    });
-
-    socket.off("hover", ({ id, value }: { id: string; value: boolean }) => {
-      hoverHandler(room, id, value);
     });
   }
 
@@ -102,15 +72,22 @@ export function joinRoom(
   nextRoom.users.push(user);
   if (isGameRoomStateObject(nextRoom)) {
     nextRoom.scores[user.uuid] = 0;
-    nextRoom.players[user.uuid] = makeNewPlayer(user.uuid, user.username);
+    nextRoom.players[user.uuid] = makeNewPlayer(
+      user.uuid,
+      user.username,
+      getSpawnPoint(nextRoom.heightFunc)
+    );
     nextRoom.world.addBody(nextRoom.players[user.uuid].physics);
 
     socket.on("control", (command: Command) => {
       controlHandler(user, roomDict, command);
     });
-
-    socket.on("hover", ({ id, value }: { id: string; value: boolean }) => {
-      hoverHandler(nextRoom, id, value);
+    socket.emit("terrain", {
+      ...nextRoom.terrain.serialized,
+      scenery: nextRoom.scenery.map((scenery) => ({
+        ...scenery,
+        physics: undefined,
+      })),
     });
   }
   socket.emit("room", user.activeRoom);

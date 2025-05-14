@@ -7,15 +7,15 @@ import { wrapAngle } from "./utils/math";
 
 import { useAuth } from "./AuthContext";
 import BigLight from "./BigLight";
-import GroundPlane from "./GroundPlane";
 import Player from "./Player";
 import { useSocket } from "./SocketContext";
+import GroundTerrain from "./GroundTerrain";
 
 const CAMERA_SENSITIVITY = 0.001;
 
 function R3F() {
   const { user } = useAuth();
-  const { gameState, updateFacing } = useSocket();
+  const { gameState, terrain, updateFacing } = useSocket();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pitch, setPitch] = useState(0);
   const [yaw, setYaw] = useState(0);
@@ -170,7 +170,7 @@ function R3F() {
           </mesh>
         );
       })}
-      <GroundPlane height={100} width={100} />
+      <GroundTerrain terrain={terrain} />
     </Canvas>
   );
 }

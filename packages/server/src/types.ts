@@ -1,5 +1,11 @@
-import { Body, World } from "cannon-es";
+import { Body, Trimesh, World } from "cannon-es";
 import User from "../db/models/User";
+
+export interface V3 {
+  x: number;
+  y: number;
+  z: number;
+}
 
 export interface Player {
   commands: {
@@ -23,24 +29,19 @@ export interface Player {
   isJumping: boolean;
   lastHitBy: string | null;
   physics: Body;
-  position: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  rotation: {
-    x: number;
-    y: number;
-    z: number;
-  };
+  position: V3;
+  rotation: V3;
   selected: boolean;
   userId: string;
   username: string;
-  velocity: {
-    x: number;
-    y: number;
-    z: number;
-  };
+  velocity: V3;
+}
+
+export interface WorldObject {
+  type: "tree" | "rock";
+  position: [number, number, number];
+  physics: Body;
+  rotation: [number, number, number];
 }
 
 export interface UserState extends Pick<User, "username" | "uuid"> {
@@ -72,19 +73,12 @@ export interface BulletStateObject {
   collided: boolean;
   playerId: string;
   physics: Body;
-  position: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  rotation: {
-    x: number;
-    y: number;
-    z: number;
-  };
+  position: V3;
+  rotation: V3;
 }
 
 export interface GameRoomStateObject extends RoomStateObject {
+  heightFunc: (x: number, z: number) => number;
   objects: {
     bullets: BulletStateObject[];
   };
@@ -94,8 +88,18 @@ export interface GameRoomStateObject extends RoomStateObject {
     playersToRemove: Player[];
   };
   players: { [key: string]: Player };
+  scenery: WorldObject[];
   scores: {
     [key: string]: number;
   };
+  terrain: Terrain;
   world: World;
+}
+
+export interface Terrain {
+  physics: Trimesh;
+  serialized: {
+    indices: number[];
+    vertices: number[];
+  };
 }

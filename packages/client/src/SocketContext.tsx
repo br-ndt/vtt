@@ -8,7 +8,7 @@ import {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { keyToCommand } from "./utils/input";
-import { Bullet, Player, RoomInfo } from "./types";
+import { Bullet, Player, RoomInfo, Terrain, WorldObject } from "./types";
 
 interface Message {
   user: string;
@@ -35,6 +35,7 @@ interface SocketContextType {
   messages: Message[];
   rooms: RoomInfo[];
   sendMessage: (message: string) => void;
+  terrain: Terrain;
   updateFacing: (yaw: number, pitch: number) => void;
 }
 
@@ -48,6 +49,7 @@ const defaultSocketContext: SocketContextType = {
   messages: [],
   rooms: [],
   sendMessage: () => undefined,
+  terrain: { indices: [], scenery: [], vertices: [] },
   updateFacing: () => undefined,
 };
 
@@ -66,6 +68,11 @@ export const useSocket = () => {
 export function SocketProvider({ children }: SocketContextProps) {
   const [activeRoom, setActiveRoom] = useState<string>("");
   const [socket, setSocket] = useState<Socket>();
+  const [terrain, setTerrain] = useState<{
+    indices: number[];
+    scenery: WorldObject[];
+    vertices: number[]; // this should probably be done elsewhere / is a sign this context will get bloated
+  }>(defaultSocketContext.terrain);
   const [messages, setMessages] = useState<Message[]>(
     defaultSocketContext.messages
   );
@@ -90,6 +97,10 @@ export function SocketProvider({ children }: SocketContextProps) {
 
     thisSocket.on("rooms", (rooms) => {
       setRooms(rooms);
+    });
+
+    thisSocket.on("terrain", (terrain) => {
+      setTerrain(terrain);
     });
 
     thisSocket.on("message", (messages) => {
@@ -147,6 +158,7 @@ export function SocketProvider({ children }: SocketContextProps) {
       socket?.off("update");
       socket?.off("room");
       socket?.off("rooms");
+      socket?.off("terrain");
       socket?.off("message");
       removeEventListener("mousedown", onMouseDown);
       removeEventListener("mouseup", onMouseUp);
@@ -203,6 +215,7 @@ export function SocketProvider({ children }: SocketContextProps) {
         messages,
         rooms,
         sendMessage,
+        terrain,
         updateFacing,
       }}
     >

@@ -36,10 +36,22 @@ export interface Bullet {
   };
 }
 
+export interface WorldObject {
+  type: "tree" | "rock";
+  position: [number, number, number];
+  rotation: [number, number, number];
+}
+
 export interface RoomInfo {
   id: string;
   name: string;
   players: string;
+}
+
+export interface Terrain {
+  indices: number[];
+  scenery: WorldObject[];
+  vertices: number[];
 }
 
 enum PlayerState {
